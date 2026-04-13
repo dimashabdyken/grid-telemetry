@@ -16,9 +16,11 @@ Grid Telemetry is a telemetry platform for ingesting, processing, and presenting
 - OpenF1 API
 - Redis
 - PostgreSQL
-- Next.js
+- Vue 3
+- Nuxt 3
 - Tailwind
-- Shadcn UI
+- shadcn-vue
 
 ## Project Structure
+
 

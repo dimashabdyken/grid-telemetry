@@ -3,5 +3,7 @@ __pycache__/
 .env
 node_modules/
 .next/
+.nuxt/
+.output/
 *.pyc
 .DS_Store
