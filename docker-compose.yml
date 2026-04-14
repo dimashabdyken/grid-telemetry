@@ -1,0 +1,67 @@
+version: "3.9"
+
+services:
+  api:
+    image: python:3.12-slim
+    container_name: grid-telemetry-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      POSTGRES_DSN: postgresql+asyncpg://grid:telemetry@postgres:5432/grid_telemetry
+    depends_on:
+      - redis
+      - postgres
+    volumes:
+      - ./backend:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+    networks:
+      - grid-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: grid-telemetry-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - grid-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: grid-telemetry-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: grid
+      POSTGRES_PASSWORD: telemetry
+      POSTGRES_DB: grid_telemetry
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - grid-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grid -d grid_telemetry"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  redis_data:
+  pg_data:
+
+networks:
+  grid-network:
+    driver: bridge
