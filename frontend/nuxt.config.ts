@@ -7,9 +7,9 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBaseUrl:
-        process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:8000',
+        import.meta.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:8000',
       wsBaseUrl:
-        process.env.NUXT_PUBLIC_WS_BASE_URL || 'ws://localhost:8000'
+        import.meta.env.NUXT_PUBLIC_WS_BASE_URL || 'ws://localhost:8000'
     }
   }
 })
