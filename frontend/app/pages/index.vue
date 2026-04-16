@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
-import { useHealthScore, useTelemetrySocket } from '#imports'
-import { getLatestSession } from '@/lib/api'
-import HealthScoreRing from '@/components/HealthScoreRing.vue'
+import { getLatestSession } from '~~/lib/api'
+import HealthScoreRing from '~~/components/HealthScoreRing.vue'
+import { useHealthScore } from '~~/composables/useHealthScore'
+import { useTelemetrySocket } from '~~/composables/useTelemetrySocket'
 
 const sessionInfo = ref<Awaited<ReturnType<typeof getLatestSession>> | null>(null)
 const driverNumber = ref(1)
@@ -16,7 +17,7 @@ const {
   error
 } = useTelemetrySocket()
 
-const healthState = useHealthScore(currentHealth)
+const { score, warnings, highestSeverity } = useHealthScore(currentHealth)
 
 onMounted(async () => {
   try {
@@ -81,15 +82,15 @@ onUnmounted(() => {
         </h2>
         <div class="flex flex-col items-center justify-center flex-1">
           <HealthScoreRing
-            :score="healthState.score || 0"
-            :severity="healthState.severity || 'NORMAL'"
+            :score="score"
+            :severity="highestSeverity || 'NORMAL'"
           />
           <ul
-            v-if="healthState.warnings && healthState.warnings.length"
+            v-if="warnings && warnings.length"
             class="mt-4 space-y-1 text-center"
           >
             <li
-              v-for="warning in healthState.warnings"
+              v-for="warning in warnings"
               :key="warning"
               class="text-[#e10600] text-xs font-bold"
             >

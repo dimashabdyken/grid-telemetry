@@ -1,6 +1,6 @@
 import { computed, type Ref } from 'vue'
 // @ts-ignore TS2307 -- Nuxt alias resolution is unavailable when tsc runs with --ignoreConfig.
-import type { HealthScore } from '~/lib/types'
+import type { HealthScore } from '../lib/types'
 
 const CRITICAL_WARNING_CODES = new Set<string>([
     'NO_DATA',

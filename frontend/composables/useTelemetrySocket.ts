@@ -1,6 +1,6 @@
 import { onUnmounted, ref } from 'vue'
 // @ts-ignore TS2307 -- Nuxt alias resolution is unavailable when tsc runs with --ignoreConfig.
-import type { ConnectionState, WSMessage, WSTelemetryMessage } from '~/lib/types'
+import type { ConnectionState, WSMessage, WSTelemetryMessage } from '../lib/types'
 
 interface RuntimeConfig {
     public: {

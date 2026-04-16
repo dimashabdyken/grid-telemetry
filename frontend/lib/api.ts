@@ -7,7 +7,7 @@ interface RuntimeConfig {
 declare function useRuntimeConfig(): RuntimeConfig
 
 // @ts-ignore TS2307 -- Nuxt alias resolution is unavailable when tsc runs with --ignoreConfig.
-import type { F1Driver, F1Session, HealthCheckResponse, TelemetryResponse } from '~/lib/types.ts'
+import type { F1Driver, F1Session, HealthCheckResponse, TelemetryResponse } from './types'
 
 export class ApiError extends Error {
     constructor(
