@@ -8,7 +8,6 @@ from typing import Any
 import orjson
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import ORJSONResponse
 
 from backend.core.cache import cache_get, cache_set, close_redis, get_redis
 from backend.core.config import settings
@@ -88,7 +87,6 @@ app = FastAPI(
     description="Production-grade F1 monitoring system",
     version=settings.APP_VERSION,
     lifespan=lifespan,
-    default_response_class=ORJSONResponse,
 )
 
 app.add_middleware(
