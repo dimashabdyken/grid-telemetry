@@ -22,7 +22,7 @@ class Settings(BaseSettings):
 
     # PostgreSQL
     POSTGRES_DSN: str = (
-        "postgresql+asyncpg://grid:telemetry@localhost:5432/grid_telemetry"
+        "postgresql+asyncpg://grid:telemetry@localhost:5433/grid_telemetry"
     )
 
     # OpenF1
