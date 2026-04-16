@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useHealthScore, useTelemetrySocket } from '#imports'
-import { getLatestSession } from '~/lib/api'
-import HealthScoreRing from '~/components/HealthScoreRing.vue'
+import { getLatestSession } from '@/lib/api'
+import HealthScoreRing from '@/components/HealthScoreRing.vue'
 
 const sessionInfo = ref<Awaited<ReturnType<typeof getLatestSession>> | null>(null)
 const driverNumber = ref(1)
