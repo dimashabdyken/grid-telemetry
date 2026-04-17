@@ -8,17 +8,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.db.models import TelemetryRecord, WarningEvent
-
-WARNING_SEVERITY_MAP: dict[str, str] = {
-    "NO_DATA": "CRITICAL",
-    "RPM_REDLINE_BREACH": "HIGH",
-    "STUCK_THROTTLE_STATIONARY": "HIGH",
-    "HEAVY_BRAKE_EVENT": "MEDIUM",
-    "DRS_FAULT": "MEDIUM",
-    "SUSTAINED_WOT": "LOW",
-    "POSSIBLE_MISSED_GEAR": "LOW",
-}
+from backend.db.models import WARNING_SEVERITY_MAP, TelemetryRecord, WarningEvent
 
 
 async def save_telemetry_batch(
@@ -32,13 +22,18 @@ async def save_telemetry_batch(
 
     warnings = health.get("warnings") or []
     warnings_json = json.dumps(warnings)
-    health_score = int(health.get("score", 0))
+    health_score = int(health.get("health_score", health.get("score", 0)))
 
     for record in records:
         session_key = str(record.get("session_key", ""))
         driver_number = int(record.get("driver_number", 0))
         raw_id = record.get("_id")
-        recorded_at = raw_id if isinstance(raw_id, datetime) else datetime.utcnow()
+        if isinstance(raw_id, datetime):
+            recorded_at = raw_id
+        elif hasattr(raw_id, "generation_time"):
+            recorded_at = raw_id.generation_time.replace(tzinfo=None)
+        else:
+            recorded_at = datetime.utcnow()
 
         telemetry_rows.append(
             TelemetryRecord(
@@ -64,7 +59,7 @@ async def save_telemetry_batch(
                         driver_number=driver_number,
                         code=str(code),
                         severity=WARNING_SEVERITY_MAP.get(str(code), "LOW"),
-                        triggered_at=datetime.utcnow(),
+                        triggered_at=recorded_at,
                     )
                 )
 
