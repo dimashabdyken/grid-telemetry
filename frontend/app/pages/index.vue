@@ -3,6 +3,7 @@ import { onMounted, onUnmounted, ref } from 'vue'
 import { getDrivers, getLatestSession } from '~~/lib/api'
 import DriverCard from '~~/components/DriverCard.vue'
 import HealthScoreRing from '~~/components/HealthScoreRing.vue'
+import MasterWarningPanel from '~~/components/MasterWarningPanel.vue'
 import TelemetryGauges from '~~/components/TelemetryGauges.vue'
 import { useHealthScore } from '~~/composables/useHealthScore'
 import { useTelemetrySocket } from '~~/composables/useTelemetrySocket'
@@ -60,6 +61,10 @@ onUnmounted(() => {
       </div>
     </header>
 
+    <div class="max-w-7xl mx-auto px-6 pt-6">
+      <MasterWarningPanel :warnings="warnings" />
+    </div>
+
     <main class="p-6 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       <DriverCard :driver="driverInfo" />
 
@@ -93,18 +98,6 @@ onUnmounted(() => {
             :score="score"
             :severity="highestSeverity || 'NORMAL'"
           />
-          <ul
-            v-if="warnings && warnings.length"
-            class="mt-4 space-y-1 text-center"
-          >
-            <li
-              v-for="warning in warnings"
-              :key="warning"
-              class="text-[#e10600] text-xs font-bold"
-            >
-              {{ warning }}
-            </li>
-          </ul>
         </div>
       </section>
 
