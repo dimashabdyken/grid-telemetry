@@ -2,6 +2,7 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import { getLatestSession } from '~~/lib/api'
 import HealthScoreRing from '~~/components/HealthScoreRing.vue'
+import TelemetryGauges from '~~/components/TelemetryGauges.vue'
 import { useHealthScore } from '~~/composables/useHealthScore'
 import { useTelemetrySocket } from '~~/composables/useTelemetrySocket'
 
@@ -102,9 +103,7 @@ onUnmounted(() => {
         <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold">
           Telemetry Stream
         </h2>
-        <div class="bg-black/60 rounded p-4 overflow-x-auto h-48">
-          <pre class="text-xs text-[#00ff00] tabular-nums">{{ latestTelemetry }}</pre>
-        </div>
+        <TelemetryGauges :data="latestTelemetry" />
       </section>
     </main>
   </div>
