@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import UTC, datetime
 from typing import Any
 
 import requests
+
+from backend.db.base import AsyncSessionLocal
+from backend.db.service import save_telemetry_batch
 
 OPENF1_BASE = "https://api.openf1.org/v1"
 RPM_REDLINE = 14500
@@ -151,7 +155,7 @@ def compute_vehicle_health(records: list[dict[str, Any]]) -> dict[str, Any]:
 async def poll_telemetry(
     session_key: str | int = "latest",
     driver_number: int | None = None,
-    interval_seconds: float = 0.27,
+    interval_seconds: float = 1.5,
 ):
     seen_ids: set[Any] = set()
 
@@ -178,11 +182,22 @@ async def poll_telemetry(
                 new_records.append(record)
 
             if new_records:
+                health = compute_vehicle_health(new_records)
+
+                async def _persist(records_to_save, health_data):
+                    try:
+                        async with AsyncSessionLocal() as db:
+                            await save_telemetry_batch(db, records_to_save, health_data)
+                    except Exception as e:
+                        logging.error(f"DB save failed: {e}")
+
+                asyncio.create_task(_persist(new_records, health))
+
                 yield {
                     "type": "telemetry",
                     "session_key": resolved_session_key,
                     "driver_number": driver_number,
-                    "health": compute_vehicle_health(new_records),
+                    "health": health,
                     "new_records": len(new_records),
                     "latest": new_records[-1],
                 }
