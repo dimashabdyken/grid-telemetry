@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
-import { getLatestSession } from '~~/lib/api'
+import { getDrivers, getLatestSession } from '~~/lib/api'
+import DriverCard from '~~/components/DriverCard.vue'
 import HealthScoreRing from '~~/components/HealthScoreRing.vue'
 import TelemetryGauges from '~~/components/TelemetryGauges.vue'
 import { useHealthScore } from '~~/composables/useHealthScore'
@@ -8,6 +9,7 @@ import { useTelemetrySocket } from '~~/composables/useTelemetrySocket'
 
 const sessionInfo = ref<Awaited<ReturnType<typeof getLatestSession>> | null>(null)
 const driverNumber = ref(1)
+const driverInfo = ref<any>(null)
 
 const {
   connect,
@@ -26,6 +28,13 @@ onMounted(async () => {
     sessionInfo.value = await getLatestSession()
   } catch (mountError) {
     console.warn('REST API rate limited, but WebSocket is running!')
+  }
+
+  try {
+    const allDrivers = await getDrivers(9161)
+    driverInfo.value = allDrivers.find(d => d.driver_number === driverNumber.value) || null
+  } catch (e) {
+    console.warn('Failed to fetch drivers')
   }
 })
 
@@ -51,7 +60,9 @@ onUnmounted(() => {
       </div>
     </header>
 
-    <main class="p-6 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+    <main class="p-6 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <DriverCard :driver="driverInfo" />
+
       <section
         class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg"
       >
