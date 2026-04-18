@@ -20,15 +20,11 @@ const {
 const { score, warnings, highestSeverity } = useHealthScore(currentHealth)
 
 onMounted(async () => {
+  connect(9161, 1)
   try {
     sessionInfo.value = await getLatestSession()
-    connect(sessionInfo.value.session_key, driverNumber.value)
   } catch (mountError) {
-    const message =
-      mountError instanceof Error
-        ? mountError.message
-        : 'Failed to initialize telemetry pipeline.'
-    error.value = message
+    console.warn('REST API rate limited, but WebSocket is running!')
   }
 })
 
