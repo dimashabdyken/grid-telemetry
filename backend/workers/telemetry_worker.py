@@ -24,25 +24,33 @@ def _get_car_data_sync(
     if driver_number is not None:
         params["driver_number"] = driver_number
 
-    response = requests.get(f"{OPENF1_BASE}/car_data", params=params, timeout=10)
-    if response.status_code == 404:
+    try:
+        response = requests.get(f"{OPENF1_BASE}/car_data", params=params, timeout=10)
+        if response.status_code == 404:
+            return []
+        response.raise_for_status()
+        data = response.json()
+        return data if isinstance(data, list) else []
+    except Exception as exc:  # noqa: BLE001
+        logging.error(f"OpenF1 car_data fetch failed: {exc}")
         return []
-    response.raise_for_status()
-    data = response.json()
-    return data if isinstance(data, list) else []
 
 
-def _get_session_sync(session_key: str | int = "latest") -> dict[str, Any]:
+def _get_session_sync(session_key: str | int = 9161) -> dict[str, Any]:
     params: dict[str, Any] = {}
     if session_key != "latest":
         params["session_key"] = session_key
 
-    response = requests.get(f"{OPENF1_BASE}/sessions", params=params, timeout=10)
-    response.raise_for_status()
-    sessions = response.json()
-    if not isinstance(sessions, list) or not sessions:
+    try:
+        response = requests.get(f"{OPENF1_BASE}/sessions", params=params, timeout=10)
+        response.raise_for_status()
+        sessions = response.json()
+        if not isinstance(sessions, list) or not sessions:
+            return {}
+        return sessions[-1]
+    except Exception as exc:  # noqa: BLE001
+        logging.error(f"OpenF1 session fetch failed: {exc}")
         return {}
-    return sessions[-1]
 
 
 def _get_drivers_sync(session_key: str | int) -> list[dict[str, Any]]:
@@ -62,7 +70,7 @@ async def fetch_car_data(
     return await asyncio.to_thread(_get_car_data_sync, session_key, driver_number)
 
 
-async def fetch_session(session_key: str | int = "latest") -> dict[str, Any]:
+async def fetch_session(session_key: str | int = 9161) -> dict[str, Any]:
     return await asyncio.to_thread(_get_session_sync, session_key)
 
 
@@ -153,8 +161,8 @@ def compute_vehicle_health(records: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 async def poll_telemetry(
-    session_key: str | int = "latest",
-    driver_number: int | None = None,
+    session_key: str | int = 9161,
+    driver_number: int | None = 1,
     interval_seconds: float = 1.5,
 ):
     seen_ids: set[Any] = set()
@@ -200,6 +208,16 @@ async def poll_telemetry(
                     "health": health,
                     "new_records": len(new_records),
                     "latest": new_records[-1],
+                }
+            else:
+                health = compute_vehicle_health(records)
+                yield {
+                    "type": "telemetry",
+                    "session_key": resolved_session_key,
+                    "driver_number": driver_number,
+                    "health": health,
+                    "new_records": 0,
+                    "latest": records[-1] if records else {},
                 }
         except Exception as exc:  # noqa: BLE001
             yield {"type": "error", "message": str(exc)}
