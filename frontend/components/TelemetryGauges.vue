@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { TransitionPresets, useTransition } from '@vueuse/core'
 import type { CarDataRecord } from '~~/lib/types'
 
 const props = defineProps<{
@@ -11,6 +12,15 @@ const gear = computed(() => props.data?.n_gear ?? 0)
 const throttle = computed(() => props.data?.throttle ?? 0)
 const brake = computed(() => props.data?.brake ?? 0)
 const rpm = computed(() => props.data?.rpm ?? 0)
+
+const smoothSpeed = useTransition(speed, {
+  duration: 150,
+  transition: TransitionPresets.linear
+})
+const smoothRpm = useTransition(rpm, {
+  duration: 150,
+  transition: TransitionPresets.linear
+})
 
 const clampedThrottle = computed(() => Math.min(Math.max(throttle.value, 0), 100))
 const clampedBrake = computed(() => Math.min(Math.max(brake.value, 0), 100))
@@ -48,7 +58,7 @@ const ledColorClass = (i: number) => {
     <div class="grid grid-cols-2 gap-3 mb-2">
       <div class="bg-[#0a0a0f] rounded-lg border border-white/5 p-3 flex flex-col items-center justify-center shadow-inner">
         <div class="text-4xl xl:text-5xl font-black italic text-white tracking-tighter tabular-nums leading-none">
-          {{ speed }}
+          {{ Math.round(smoothSpeed) }}
         </div>
         <div class="text-[10px] text-gray-500 uppercase tracking-[0.2em] mt-1 font-bold">
           KM/H
@@ -98,7 +108,7 @@ const ledColorClass = (i: number) => {
         />
       </div>
       <div class="text-right text-xs text-slate-400 tabular-nums mt-1 font-bold">
-        {{ rpm }}
+        {{ Math.round(smoothRpm) }}
       </div>
     </div>
   </div>

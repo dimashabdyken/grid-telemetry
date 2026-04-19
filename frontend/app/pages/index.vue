@@ -29,6 +29,14 @@ onMounted(async () => {
     sessionInfo.value = await getSession(9161)
   } catch (mountError) {
     console.warn('Backend offline, starting DEMO MODE for UI development')
+    sessionInfo.value = { session_name: 'Singapore GP (DEMO)', year: 2023 } as any
+    driverInfo.value = {
+      full_name: 'Max Verstappen',
+      team_name: 'Red Bull Racing',
+      driver_number: 1,
+      team_colour: '3671C6',
+      headshot_url: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/M/MAXVER01_Max_Verstappen/maxver01.png.transform/2col/image.png'
+    } as any
     enableDemoMode()
   }
 
