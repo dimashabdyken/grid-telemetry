@@ -185,7 +185,9 @@ async def poll_telemetry(
 
     records: list[dict[str, Any]] = []
     try:
-        records = await fetch_car_data(resolved_session_key, driver_number=driver_number)
+        records = await fetch_car_data(
+            resolved_session_key, driver_number=driver_number
+        )
     except Exception as exc:  # noqa: BLE001
         logging.error(f"Failed to fetch records: {exc}")
 
