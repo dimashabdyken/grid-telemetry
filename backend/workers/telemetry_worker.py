@@ -24,16 +24,16 @@ _FASTF1_SESSION: Any | None = None
 _FASTF1_LOAD_TASK: asyncio.Task[Any] | None = None
 
 
-def _load_fastf1_session_sync() -> Any:
-    session = fastf1.get_session(FASTF1_YEAR, FASTF1_EVENT, FASTF1_SESSION)
-    session.load(telemetry=True, laps=False, weather=False)
-    return session
-
-
 def initialize_fastf1_session() -> Any:
     global _FASTF1_SESSION
     if _FASTF1_SESSION is None:
-        _FASTF1_SESSION = _load_fastf1_session_sync()
+        session = fastf1.get_session(FASTF1_YEAR, FASTF1_EVENT, FASTF1_SESSION)
+        try:
+            session.load(telemetry=True, laps=False, weather=False)
+        except Exception:
+            fastf1.Cache.clear_cache("./cache")
+            raise
+        _FASTF1_SESSION = session
     return _FASTF1_SESSION
 
 
@@ -177,12 +177,15 @@ async def poll_telemetry(
     resolved_driver = driver_number if driver_number is not None else 1
     resolved_session_key = str(session_key)
 
-    session = await get_fastf1_session()
+    await get_fastf1_session()
+    session = _FASTF1_SESSION
+    if session is None:
+        raise RuntimeError("FastF1 session is not initialized")
 
     # Matches the requested baseline retrieval of historical telemetry.
-    car_data = session.car_data.get("1")
+    car_data = _FASTF1_SESSION.car_data.get("1")
     if resolved_driver != 1:
-        driver_car_data = session.car_data.get(str(resolved_driver))
+        driver_car_data = _FASTF1_SESSION.car_data.get(str(resolved_driver))
         if driver_car_data is not None and not driver_car_data.empty:
             car_data = driver_car_data
 
