@@ -5,81 +5,41 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-import requests
+import fastf1
 
 from backend.db.base import AsyncSessionLocal
 from backend.db.service import save_telemetry_batch
 
-OPENF1_BASE = "https://api.openf1.org/v1"
 RPM_REDLINE = 14500
 THROTTLE_WOT = 95
 BRAKE_HEAVY = 90
 DRS_FAULT_CODES = {14}
 
-
-def _get_car_data_sync(
-    session_key: str | int, driver_number: int | None = None
-) -> list[dict[str, Any]]:
-    params: dict[str, Any] = {"session_key": session_key, "limit": 1000}
-    if driver_number is not None:
-        params["driver_number"] = driver_number
-
-    try:
-        response = requests.get(f"{OPENF1_BASE}/car_data", params=params, timeout=10)
-        if response.status_code == 404:
-            return []
-        response.raise_for_status()
-        data = response.json()
-        return data if isinstance(data, list) else []
-    except Exception as exc:  # noqa: BLE001
-        logging.error(f"OpenF1 car_data fetch failed: {exc}")
-        return []
+fastf1.Cache.enable_cache("./cache")
 
 
-def _get_session_sync(session_key: str | int = 9161) -> dict[str, Any]:
-    params: dict[str, Any] = {}
-    if session_key != "latest":
-        params["session_key"] = session_key
+def _row_to_record(row: Any, session_key: str, driver_number: int) -> dict[str, Any]:
+    date_value = row.get("Date")
+    date_iso = (
+        date_value.isoformat()
+        if hasattr(date_value, "isoformat")
+        else datetime.now(UTC).isoformat()
+    )
 
-    try:
-        response = requests.get(f"{OPENF1_BASE}/sessions", params=params, timeout=10)
-        response.raise_for_status()
-        sessions = response.json()
-        if not isinstance(sessions, list) or not sessions:
-            return {}
-        return sessions[-1]
-    except Exception as exc:  # noqa: BLE001
-        logging.error(f"OpenF1 session fetch failed: {exc}")
-        return {}
-
-
-def _get_drivers_sync(session_key: str | int) -> list[dict[str, Any]]:
-    try:
-        response = requests.get(
-            f"{OPENF1_BASE}/drivers",
-            params={"session_key": session_key},
-            timeout=10,
-        )
-        response.raise_for_status()
-        data = response.json()
-        return data if isinstance(data, list) else []
-    except Exception as exc:  # noqa: BLE001
-        logging.error(f"OpenF1 drivers fetch failed: {exc}")
-        return []
-
-
-async def fetch_car_data(
-    session_key: str | int, driver_number: int | None = None
-) -> list[dict[str, Any]]:
-    return await asyncio.to_thread(_get_car_data_sync, session_key, driver_number)
-
-
-async def fetch_session(session_key: str | int = 9161) -> dict[str, Any]:
-    return await asyncio.to_thread(_get_session_sync, session_key)
-
-
-async def fetch_drivers(session_key: str | int) -> list[dict[str, Any]]:
-    return await asyncio.to_thread(_get_drivers_sync, session_key)
+    gear = _to_int(row.get("nGear"))
+    return {
+        "session_key": session_key,
+        "date": date_iso,
+        "driver_number": driver_number,
+        "speed": _to_float(row.get("Speed")),
+        "throttle": _to_float(row.get("Throttle")),
+        "brake": _to_float(row.get("Brake")),
+        "rpm": _to_int(row.get("RPM")),
+        "gear": gear,
+        "n_gear": gear,
+        "drs": _to_int(row.get("DRS")),
+        "_id": date_value,
+    }
 
 
 def _to_float(value: Any, default: float = 0.0) -> float:
@@ -169,10 +129,41 @@ async def poll_telemetry(
     driver_number: int | None = 1,
     interval_seconds: float = 1.5,
 ):
-    resolved_session_key = session_key
-    if session_key == "latest":
-        session = await fetch_session("latest")
-        resolved_session_key = session.get("session_key", "latest")
+    resolved_driver = driver_number if driver_number is not None else 1
+    resolved_session_key = str(session_key)
+
+    session = await asyncio.to_thread(fastf1.get_session, 2023, "Singapore", "R")
+    await asyncio.to_thread(
+        session.load,
+        telemetry=True,
+        laps=False,
+        weather=False,
+    )
+
+    # Matches the requested baseline retrieval of historical telemetry.
+    car_data = session.car_data.get("1")
+    if resolved_driver != 1:
+        driver_car_data = session.car_data.get(str(resolved_driver))
+        if driver_car_data is not None and not driver_car_data.empty:
+            car_data = driver_car_data
+
+    if car_data is None or car_data.empty:
+        logging.warning("FastF1 returned no car data for requested driver")
+        while True:
+            yield {
+                "type": "telemetry",
+                "session_key": resolved_session_key,
+                "driver_number": resolved_driver,
+                "health": {"score": 0, "warnings": ["NO_DATA"], "snapshot": {}},
+                "new_records": 0,
+                "latest": {},
+            }
+            await asyncio.sleep(5)
+
+    records = [
+        _row_to_record(row, resolved_session_key, resolved_driver)
+        for _, row in car_data.iterrows()
+    ]
 
     async def _persist(
         records_to_save: list[dict[str, Any]], health_data: dict[str, Any]
@@ -183,34 +174,7 @@ async def poll_telemetry(
         except Exception as exc:  # noqa: BLE001
             logging.error(f"DB save failed: {exc}")
 
-    records: list[dict[str, Any]] = []
-    try:
-        records = await fetch_car_data(
-            resolved_session_key, driver_number=driver_number
-        )
-    except Exception as exc:  # noqa: BLE001
-        logging.error(f"Failed to fetch records: {exc}")
-
     while True:
-        if not records:
-            yield {
-                "type": "telemetry",
-                "session_key": resolved_session_key,
-                "driver_number": driver_number,
-                "health": {"score": 0, "warnings": ["NO_DATA"], "snapshot": {}},
-                "new_records": 0,
-                "latest": {},
-            }
-            await asyncio.sleep(5)
-            try:
-                records = await fetch_car_data(
-                    resolved_session_key, driver_number=driver_number
-                )
-            except Exception as exc:  # noqa: BLE001
-                logging.error(f"Failed to fetch records: {exc}")
-                records = []
-            continue
-
         for i, record in enumerate(records):
             try:
                 recent_records = records[max(0, i - 9) : i + 1]
@@ -221,13 +185,13 @@ async def poll_telemetry(
                 yield {
                     "type": "telemetry",
                     "session_key": resolved_session_key,
-                    "driver_number": driver_number,
+                    "driver_number": resolved_driver,
                     "health": health,
                     "new_records": 1,
                     "latest": record,
                 }
 
-                await asyncio.sleep(0.2)
+                await asyncio.sleep(interval_seconds)
             except Exception as exc:  # noqa: BLE001
                 logging.error(f"Error in replay loop: {exc}")
                 await asyncio.sleep(1)
@@ -236,15 +200,23 @@ async def poll_telemetry(
 
 
 async def _demo() -> None:
-    session = await fetch_session("latest")
-    session_key = session.get("session_key", "latest")
-    session_name = session.get("session_name", "UNKNOWN")
-    session_date = session.get("date_start", "UNKNOWN")
+    session = await asyncio.to_thread(fastf1.get_session, 2023, "Singapore", "R")
+    await asyncio.to_thread(
+        session.load,
+        telemetry=True,
+        laps=False,
+        weather=False,
+    )
+    car_data = session.car_data.get("1")
+    records = []
+    if car_data is not None and not car_data.empty:
+        records = [
+            _row_to_record(row, "2023-Singapore-R", 1) for _, row in car_data.iterrows()
+        ]
 
-    records = await fetch_car_data(session_key)
     health = compute_vehicle_health(records)
 
-    print(f"Session: {session_name} ({session_date})")
+    print("Session: 2023 Singapore R")
     print(f"Fetched car_data records: {len(records)}")
     print(f"Vehicle Health Score: {health['score']}")
     if health["warnings"]:
