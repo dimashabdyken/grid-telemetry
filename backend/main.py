@@ -5,6 +5,7 @@ import logging
 from contextlib import asynccontextmanager, suppress
 from typing import Any
 
+import fastf1
 import orjson
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,9 +17,6 @@ from backend.db.base import AsyncSessionLocal
 from backend.db.models import WarningEvent
 from backend.workers.telemetry_worker import (
     compute_vehicle_health,
-    fetch_car_data,
-    fetch_drivers,
-    fetch_session,
     poll_telemetry,
 )
 
@@ -67,6 +65,98 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+
+
+def _to_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _to_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+async def _load_fastf1_session() -> Any:
+    session = await asyncio.to_thread(fastf1.get_session, 2023, "Singapore", "R")
+    await asyncio.to_thread(
+        session.load,
+        telemetry=True,
+        laps=True,
+        weather=False,
+    )
+    return session
+
+
+async def fetch_session(session_key: str | int = "latest") -> dict[str, Any]:
+    session = await _load_fastf1_session()
+    return {
+        "session_key": "2023-Singapore-R" if session_key == "latest" else session_key,
+        "session_name": "Singapore Race",
+        "date_start": str(getattr(session, "date", "")),
+        "event_name": getattr(getattr(session, "event", None), "EventName", "Singapore"),
+    }
+
+
+async def fetch_drivers(_: str | int) -> list[dict[str, Any]]:
+    session = await _load_fastf1_session()
+    drivers: list[dict[str, Any]] = []
+    for drv in sorted(session.drivers):
+        drv_code = str(drv)
+        try:
+            details = session.get_driver(drv_code)
+        except Exception:
+            details = {}
+        drivers.append(
+            {
+                "driver_number": _to_int(drv_code),
+                "name": details.get("FullName") or details.get("Abbreviation") or drv_code,
+                "abbreviation": details.get("Abbreviation") or drv_code,
+                "team_name": details.get("TeamName") or "",
+            }
+        )
+    return drivers
+
+
+async def fetch_car_data(
+    _: str | int,
+    driver_number: int | None = None,
+) -> list[dict[str, Any]]:
+    session = await _load_fastf1_session()
+    resolved_driver = driver_number if driver_number is not None else 1
+
+    car_data = session.car_data.get(str(resolved_driver))
+    if car_data is None or car_data.empty:
+        car_data = session.car_data.get("1")
+    if car_data is None or car_data.empty:
+        return []
+
+    records: list[dict[str, Any]] = []
+    for _, row in car_data.iterrows():
+        date_value = row.get("Date")
+        date_iso = str(date_value.isoformat()) if hasattr(date_value, "isoformat") else ""
+        gear = _to_int(row.get("nGear"))
+        records.append(
+            {
+                "session_key": "2023-Singapore-R",
+                "date": date_iso,
+                "driver_number": resolved_driver,
+                "speed": _to_float(row.get("Speed")),
+                "throttle": _to_float(row.get("Throttle")),
+                "brake": _to_float(row.get("Brake")),
+                "rpm": _to_int(row.get("RPM")),
+                "gear": gear,
+                "n_gear": gear,
+                "drs": _to_int(row.get("DRS")),
+                "_id": date_value,
+            }
+        )
+
+    return records
 
 
 @asynccontextmanager
@@ -174,7 +264,7 @@ async def telemetry(
     except Exception as exc:
         raise HTTPException(
             status_code=502,
-            detail=f"OpenF1 request failed: {exc}",
+            detail=f"FastF1 request failed: {exc}",
         ) from exc
 
     recent_records = records[-50:]
