@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 from datetime import UTC, datetime
 from typing import Any
 
@@ -223,14 +224,25 @@ async def poll_telemetry(
                 health = compute_vehicle_health(recent_records)
 
                 # Convert record to dict
-                record_dict = record.to_dict() if hasattr(record, "to_dict") else dict(record)
+                record_dict = (
+                    record.to_dict() if hasattr(record, "to_dict") else dict(record)
+                )
 
                 # Fix serialization: convert Timestamp/datetime and numpy scalars.
                 for key, value in record_dict.items():
-                    if hasattr(value, "isoformat"):
+                    if isinstance(value, float) and (
+                        math.isnan(value) or math.isinf(value)
+                    ):
+                        record_dict[key] = None
+                    elif hasattr(value, "isoformat"):
                         record_dict[key] = value.isoformat()
                     elif hasattr(value, "item"):
                         record_dict[key] = value.item()
+                        item_value = record_dict[key]
+                        if isinstance(item_value, float) and (
+                            math.isnan(item_value) or math.isinf(item_value)
+                        ):
+                            record_dict[key] = None
 
                 asyncio.create_task(_persist([record_dict], health))
 
