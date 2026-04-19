@@ -13,28 +13,70 @@ declare function useRuntimeConfig(): RuntimeConfig
 const RECONNECT_DELAY_MS = 2000
 const MAX_RECONNECT_ATTEMPTS = 5
 
-export const useTelemetrySocket = () => {
-    const connectionState = ref<ConnectionState>('closed')
-    const latestTelemetry = ref<WSTelemetryMessage['latest'] | null>(null)
-    const currentHealth = ref<WSTelemetryMessage['health'] | null>(null)
-    const error = ref<string | null>(null)
-    const lastPing = ref<Date | null>(null)
+const connectionState = ref<ConnectionState>('closed')
+const latestTelemetry = ref<WSTelemetryMessage['latest'] | null>(null)
+const currentHealth = ref<WSTelemetryMessage['health'] | null>(null)
+const error = ref<string | null>(null)
+const lastPing = ref<Date | null>(null)
 
-    const socket = ref<WebSocket | null>(null)
-    const reconnectAttempts = ref(0)
+const socket = ref<WebSocket | null>(null)
+const reconnectAttempts = ref(0)
 
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
-    let intentionalClose = false
-    let lastSessionKey: string | number | null = null
-    let lastDriverNumber: number | null = null
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+let demoTimer: ReturnType<typeof setInterval> | null = null
+let intentionalClose = false
+let lastSessionKey: string | number | null = null
+let lastDriverNumber: number | null = null
 
-    const clearReconnectTimer = () => {
-        if (reconnectTimer) {
-            clearTimeout(reconnectTimer)
-            reconnectTimer = null
-        }
+const clearReconnectTimer = () => {
+    if (reconnectTimer) {
+        clearTimeout(reconnectTimer)
+        reconnectTimer = null
+    }
+}
+
+const stopDemoMode = () => {
+    if (demoTimer) {
+        clearInterval(demoTimer)
+        demoTimer = null
+    }
+}
+
+const randomInt = (min: number, max: number): number =>
+    Math.floor(Math.random() * (max - min + 1)) + min
+
+export const enableDemoMode = () => {
+    intentionalClose = true
+    clearReconnectTimer()
+    reconnectAttempts.value = 0
+
+    if (socket.value) {
+        socket.value.close()
+        socket.value = null
     }
 
+    stopDemoMode()
+    connectionState.value = 'open'
+    error.value = null
+
+    demoTimer = setInterval(() => {
+        const throttle = randomInt(0, 100)
+        const brake = throttle > 50 ? 0 : randomInt(0, 100)
+
+        latestTelemetry.value = {
+            date: new Date().toISOString(),
+            driver_number: lastDriverNumber ?? 1,
+            speed: randomInt(100, 320),
+            throttle,
+            brake,
+            rpm: randomInt(8000, 14500),
+            n_gear: randomInt(3, 8),
+            drs: randomInt(0, 1)
+        }
+    }, 150)
+}
+
+export const useTelemetrySocket = () => {
     const scheduleReconnect = () => {
         if (
             intentionalClose ||
@@ -89,6 +131,8 @@ export const useTelemetrySocket = () => {
         const config = useRuntimeConfig()
         const WS_BASE = config.public.wsBaseUrl || 'ws://localhost:8000'
 
+        stopDemoMode()
+
         lastSessionKey = sessionKey
         lastDriverNumber = driverNumber
 
@@ -129,6 +173,7 @@ export const useTelemetrySocket = () => {
     const disconnect = () => {
         intentionalClose = true
         clearReconnectTimer()
+        stopDemoMode()
         reconnectAttempts.value = 0
 
         if (socket.value) {

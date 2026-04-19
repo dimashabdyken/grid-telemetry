@@ -6,7 +6,7 @@ import HealthScoreRing from '~~/components/HealthScoreRing.vue'
 import MasterWarningPanel from '~~/components/MasterWarningPanel.vue'
 import TelemetryGauges from '~~/components/TelemetryGauges.vue'
 import { useHealthScore } from '~~/composables/useHealthScore'
-import { useTelemetrySocket } from '~~/composables/useTelemetrySocket'
+import { enableDemoMode, useTelemetrySocket } from '~~/composables/useTelemetrySocket'
 
 const sessionInfo = ref<Awaited<ReturnType<typeof getSession>> | null>(null)
 const driverNumber = ref(1)
@@ -28,7 +28,8 @@ onMounted(async () => {
   try {
     sessionInfo.value = await getSession(9161)
   } catch (mountError) {
-    console.warn('REST API rate limited, but WebSocket is running!')
+    console.warn('Backend offline, starting DEMO MODE for UI development')
+    enableDemoMode()
   }
 
   try {
