@@ -4,6 +4,7 @@ import { getDrivers, getSession } from '~~/lib/api'
 import DriverCard from '~~/components/DriverCard.vue'
 import HealthScoreRing from '~~/components/HealthScoreRing.vue'
 import MasterWarningPanel from '~~/components/MasterWarningPanel.vue'
+import TelemetryChart from '~~/components/TelemetryChart.vue'
 import TelemetryGauges from '~~/components/TelemetryGauges.vue'
 import WarningHistoryPanel from '~~/components/WarningHistoryPanel.vue'
 import { useHealthScore } from '~~/composables/useHealthScore'
@@ -118,6 +119,13 @@ onUnmounted(() => {
           Telemetry Stream
         </h2>
         <TelemetryGauges :data="latestTelemetry" />
+      </section>
+
+      <section class="col-span-full bg-[#1e1e28] rounded-xl p-6 border border-white/5 shadow-lg">
+        <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold mb-4">
+          Speed Trend
+        </h2>
+        <TelemetryChart :data="latestTelemetry" />
       </section>
 
       <div class="col-span-full">
