@@ -5,6 +5,7 @@ import DriverCard from '~~/components/DriverCard.vue'
 import HealthScoreRing from '~~/components/HealthScoreRing.vue'
 import MasterWarningPanel from '~~/components/MasterWarningPanel.vue'
 import TelemetryGauges from '~~/components/TelemetryGauges.vue'
+import WarningHistoryPanel from '~~/components/WarningHistoryPanel.vue'
 import { useHealthScore } from '~~/composables/useHealthScore'
 import { enableDemoMode, useTelemetrySocket } from '~~/composables/useTelemetrySocket'
 
@@ -118,6 +119,10 @@ onUnmounted(() => {
         </h2>
         <TelemetryGauges :data="latestTelemetry" />
       </section>
+
+      <div class="col-span-full">
+        <WarningHistoryPanel />
+      </div>
     </main>
   </div>
 </template>
