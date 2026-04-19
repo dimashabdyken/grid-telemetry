@@ -16,6 +16,51 @@ BRAKE_HEAVY = 90
 DRS_FAULT_CODES = {14}
 
 fastf1.Cache.enable_cache("./cache")
+FASTF1_YEAR = 2023
+FASTF1_EVENT = "Singapore"
+FASTF1_SESSION = "R"
+
+_FASTF1_SESSION: Any | None = None
+_FASTF1_LOAD_TASK: asyncio.Task[Any] | None = None
+
+
+def _load_fastf1_session_sync() -> Any:
+    session = fastf1.get_session(FASTF1_YEAR, FASTF1_EVENT, FASTF1_SESSION)
+    session.load(telemetry=True, laps=False, weather=False)
+    return session
+
+
+def initialize_fastf1_session() -> Any:
+    global _FASTF1_SESSION
+    if _FASTF1_SESSION is None:
+        _FASTF1_SESSION = _load_fastf1_session_sync()
+    return _FASTF1_SESSION
+
+
+async def get_fastf1_session() -> Any:
+    global _FASTF1_SESSION
+    global _FASTF1_LOAD_TASK
+
+    if _FASTF1_SESSION is not None:
+        return _FASTF1_SESSION
+
+    if _FASTF1_LOAD_TASK is None:
+        _FASTF1_LOAD_TASK = asyncio.create_task(
+            asyncio.to_thread(initialize_fastf1_session)
+        )
+
+    try:
+        _FASTF1_SESSION = await _FASTF1_LOAD_TASK
+        return _FASTF1_SESSION
+    finally:
+        if _FASTF1_SESSION is not None:
+            _FASTF1_LOAD_TASK = None
+
+
+try:
+    initialize_fastf1_session()
+except Exception as exc:  # noqa: BLE001
+    logging.warning(f"FastF1 global preload failed, will retry lazily: {exc}")
 
 
 def _row_to_record(row: Any, session_key: str, driver_number: int) -> dict[str, Any]:
@@ -132,13 +177,7 @@ async def poll_telemetry(
     resolved_driver = driver_number if driver_number is not None else 1
     resolved_session_key = str(session_key)
 
-    session = await asyncio.to_thread(fastf1.get_session, 2023, "Singapore", "R")
-    await asyncio.to_thread(
-        session.load,
-        telemetry=True,
-        laps=False,
-        weather=False,
-    )
+    session = await get_fastf1_session()
 
     # Matches the requested baseline retrieval of historical telemetry.
     car_data = session.car_data.get("1")
@@ -200,13 +239,7 @@ async def poll_telemetry(
 
 
 async def _demo() -> None:
-    session = await asyncio.to_thread(fastf1.get_session, 2023, "Singapore", "R")
-    await asyncio.to_thread(
-        session.load,
-        telemetry=True,
-        laps=False,
-        weather=False,
-    )
+    session = await get_fastf1_session()
     car_data = session.car_data.get("1")
     records = []
     if car_data is not None and not car_data.empty:
