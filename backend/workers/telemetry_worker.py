@@ -54,14 +54,18 @@ def _get_session_sync(session_key: str | int = 9161) -> dict[str, Any]:
 
 
 def _get_drivers_sync(session_key: str | int) -> list[dict[str, Any]]:
-    response = requests.get(
-        f"{OPENF1_BASE}/drivers",
-        params={"session_key": session_key},
-        timeout=10,
-    )
-    response.raise_for_status()
-    data = response.json()
-    return data if isinstance(data, list) else []
+    try:
+        response = requests.get(
+            f"{OPENF1_BASE}/drivers",
+            params={"session_key": session_key},
+            timeout=10,
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data if isinstance(data, list) else []
+    except Exception as exc:  # noqa: BLE001
+        logging.error(f"OpenF1 drivers fetch failed: {exc}")
+        return []
 
 
 async def fetch_car_data(
@@ -179,41 +183,54 @@ async def poll_telemetry(
         except Exception as exc:  # noqa: BLE001
             logging.error(f"DB save failed: {exc}")
 
+    records: list[dict[str, Any]] = []
     try:
-        records = await fetch_car_data(
-            resolved_session_key, driver_number=driver_number
-        )
+        records = await fetch_car_data(resolved_session_key, driver_number=driver_number)
     except Exception as exc:  # noqa: BLE001
-        yield {"type": "error", "message": str(exc)}
-        return
+        logging.error(f"Failed to fetch records: {exc}")
 
-    if not records:
-        yield {
-            "type": "telemetry",
-            "session_key": resolved_session_key,
-            "driver_number": driver_number,
-            "health": compute_vehicle_health([]),
-            "new_records": 0,
-            "latest": {},
-        }
-        return
+    while True:
+        if not records:
+            yield {
+                "type": "telemetry",
+                "session_key": resolved_session_key,
+                "driver_number": driver_number,
+                "health": {"score": 0, "warnings": ["NO_DATA"], "snapshot": {}},
+                "new_records": 0,
+                "latest": {},
+            }
+            await asyncio.sleep(5)
+            try:
+                records = await fetch_car_data(
+                    resolved_session_key, driver_number=driver_number
+                )
+            except Exception as exc:  # noqa: BLE001
+                logging.error(f"Failed to fetch records: {exc}")
+                records = []
+            continue
 
-    for i, record in enumerate(records):
-        recent_records = records[max(0, i - 9) : i + 1]
-        health = compute_vehicle_health(recent_records)
+        for i, record in enumerate(records):
+            try:
+                recent_records = records[max(0, i - 9) : i + 1]
+                health = compute_vehicle_health(recent_records)
 
-        asyncio.create_task(_persist([record], health))
+                asyncio.create_task(_persist([record], health))
 
-        yield {
-            "type": "telemetry",
-            "session_key": resolved_session_key,
-            "driver_number": driver_number,
-            "health": health,
-            "new_records": 1,
-            "latest": record,
-        }
+                yield {
+                    "type": "telemetry",
+                    "session_key": resolved_session_key,
+                    "driver_number": driver_number,
+                    "health": health,
+                    "new_records": 1,
+                    "latest": record,
+                }
 
-        await asyncio.sleep(0.2)
+                await asyncio.sleep(0.2)
+            except Exception as exc:  # noqa: BLE001
+                logging.error(f"Error in replay loop: {exc}")
+                await asyncio.sleep(1)
+
+        logging.info("Restarting telemetry replay loop...")
 
 
 async def _demo() -> None:
