@@ -20,7 +20,7 @@ DRS_FAULT_CODES = {14}
 def _get_car_data_sync(
     session_key: str | int, driver_number: int | None = None
 ) -> list[dict[str, Any]]:
-    params: dict[str, Any] = {"session_key": session_key}
+    params: dict[str, Any] = {"session_key": session_key, "limit": 1000}
     if driver_number is not None:
         params["driver_number"] = driver_number
 
@@ -170,7 +170,9 @@ async def poll_telemetry(
         session = await fetch_session("latest")
         resolved_session_key = session.get("session_key", "latest")
 
-    async def _persist(records_to_save: list[dict[str, Any]], health_data: dict[str, Any]):
+    async def _persist(
+        records_to_save: list[dict[str, Any]], health_data: dict[str, Any]
+    ):
         try:
             async with AsyncSessionLocal() as db:
                 await save_telemetry_batch(db, records_to_save, health_data)
@@ -178,7 +180,9 @@ async def poll_telemetry(
             logging.error(f"DB save failed: {exc}")
 
     try:
-        records = await fetch_car_data(resolved_session_key, driver_number=driver_number)
+        records = await fetch_car_data(
+            resolved_session_key, driver_number=driver_number
+        )
     except Exception as exc:  # noqa: BLE001
         yield {"type": "error", "message": str(exc)}
         return
