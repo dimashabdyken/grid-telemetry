@@ -165,64 +165,51 @@ async def poll_telemetry(
     driver_number: int | None = 1,
     interval_seconds: float = 1.5,
 ):
-    seen_ids: set[Any] = set()
-
     resolved_session_key = session_key
     if session_key == "latest":
         session = await fetch_session("latest")
         resolved_session_key = session.get("session_key", "latest")
 
-    while True:
+    async def _persist(records_to_save: list[dict[str, Any]], health_data: dict[str, Any]):
         try:
-            records = await fetch_car_data(
-                resolved_session_key, driver_number=driver_number
-            )
-
-            new_records: list[dict[str, Any]] = []
-            for record in records:
-                record_id = record.get("_id")
-                if record_id is None:
-                    new_records.append(record)
-                    continue
-                if record_id in seen_ids:
-                    continue
-                seen_ids.add(record_id)
-                new_records.append(record)
-
-            if new_records:
-                health = compute_vehicle_health(new_records)
-
-                async def _persist(records_to_save, health_data):
-                    try:
-                        async with AsyncSessionLocal() as db:
-                            await save_telemetry_batch(db, records_to_save, health_data)
-                    except Exception as e:
-                        logging.error(f"DB save failed: {e}")
-
-                asyncio.create_task(_persist(new_records, health))
-
-                yield {
-                    "type": "telemetry",
-                    "session_key": resolved_session_key,
-                    "driver_number": driver_number,
-                    "health": health,
-                    "new_records": len(new_records),
-                    "latest": new_records[-1],
-                }
-            else:
-                health = compute_vehicle_health(records)
-                yield {
-                    "type": "telemetry",
-                    "session_key": resolved_session_key,
-                    "driver_number": driver_number,
-                    "health": health,
-                    "new_records": 0,
-                    "latest": records[-1] if records else {},
-                }
+            async with AsyncSessionLocal() as db:
+                await save_telemetry_batch(db, records_to_save, health_data)
         except Exception as exc:  # noqa: BLE001
-            yield {"type": "error", "message": str(exc)}
+            logging.error(f"DB save failed: {exc}")
 
-        await asyncio.sleep(interval_seconds)
+    try:
+        records = await fetch_car_data(resolved_session_key, driver_number=driver_number)
+    except Exception as exc:  # noqa: BLE001
+        yield {"type": "error", "message": str(exc)}
+        return
+
+    if not records:
+        yield {
+            "type": "telemetry",
+            "session_key": resolved_session_key,
+            "driver_number": driver_number,
+            "health": compute_vehicle_health([]),
+            "new_records": 0,
+            "latest": {},
+        }
+        return
+
+    for i, record in enumerate(records):
+        recent_records = records[max(0, i - 9) : i + 1]
+        health = compute_vehicle_health(recent_records)
+
+        asyncio.create_task(_persist([record], health))
+
+        yield {
+            "type": "telemetry",
+            "session_key": resolved_session_key,
+            "driver_number": driver_number,
+            "health": health,
+            "new_records": 1,
+            "latest": record,
+        }
+
+        await asyncio.sleep(0.2)
 
 
 async def _demo() -> None:
