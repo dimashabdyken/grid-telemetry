@@ -222,7 +222,17 @@ async def poll_telemetry(
                 recent_records = records[max(0, i - 9) : i + 1]
                 health = compute_vehicle_health(recent_records)
 
-                asyncio.create_task(_persist([record], health))
+                # Convert record to dict
+                record_dict = record.to_dict() if hasattr(record, "to_dict") else dict(record)
+
+                # Fix serialization: convert Timestamp/datetime and numpy scalars.
+                for key, value in record_dict.items():
+                    if hasattr(value, "isoformat"):
+                        record_dict[key] = value.isoformat()
+                    elif hasattr(value, "item"):
+                        record_dict[key] = value.item()
+
+                asyncio.create_task(_persist([record_dict], health))
 
                 yield {
                     "type": "telemetry",
@@ -230,7 +240,7 @@ async def poll_telemetry(
                     "driver_number": resolved_driver,
                     "health": health,
                     "new_records": 1,
-                    "latest": record,
+                    "latest": record_dict,
                 }
 
                 await asyncio.sleep(interval_seconds)
