@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
-import { getDrivers, getLatestSession } from '~~/lib/api'
+import { getDrivers, getSession } from '~~/lib/api'
 import DriverCard from '~~/components/DriverCard.vue'
 import HealthScoreRing from '~~/components/HealthScoreRing.vue'
 import MasterWarningPanel from '~~/components/MasterWarningPanel.vue'
@@ -8,7 +8,7 @@ import TelemetryGauges from '~~/components/TelemetryGauges.vue'
 import { useHealthScore } from '~~/composables/useHealthScore'
 import { useTelemetrySocket } from '~~/composables/useTelemetrySocket'
 
-const sessionInfo = ref<Awaited<ReturnType<typeof getLatestSession>> | null>(null)
+const sessionInfo = ref<Awaited<ReturnType<typeof getSession>> | null>(null)
 const driverNumber = ref(1)
 const driverInfo = ref<any>(null)
 
@@ -26,7 +26,7 @@ const { score, warnings, highestSeverity } = useHealthScore(currentHealth)
 onMounted(async () => {
   connect(9161, 1)
   try {
-    sessionInfo.value = await getLatestSession()
+    sessionInfo.value = await getSession(9161)
   } catch (mountError) {
     console.warn('REST API rate limited, but WebSocket is running!')
   }

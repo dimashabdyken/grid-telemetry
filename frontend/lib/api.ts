@@ -76,10 +76,10 @@ async function apiFetch<T>(
 }
 
 /**
- * Calls GET /api/v1/sessions/latest and returns the latest available F1 session.
+ * Calls GET /api/v1/sessions/{sessionKey} and returns the matching F1 session.
  */
-export async function getLatestSession(): Promise<F1Session> {
-    return apiFetch<F1Session>('/api/v1/sessions/latest')
+export async function getSession(sessionKey: number | string): Promise<F1Session> {
+    return apiFetch<F1Session>(`/api/v1/sessions/${sessionKey}`)
 }
 
 /**

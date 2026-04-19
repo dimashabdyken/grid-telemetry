@@ -132,14 +132,14 @@ async def health() -> dict[str, Any]:
     }
 
 
-@app.get("/api/v1/sessions/latest")
-async def latest_session() -> dict[str, Any]:
-    cache_key = "session:latest"
+@app.get("/api/v1/sessions/{session_key}")
+async def get_session(session_key: str) -> dict[str, Any]:
+    cache_key = f"session:{session_key}"
     cached = await cache_get(cache_key)
     if cached:
         return cached
 
-    session = await fetch_session("latest")
+    session = await fetch_session(session_key=session_key)
     if not session:
         raise HTTPException(status_code=404, detail="No session found")
 
