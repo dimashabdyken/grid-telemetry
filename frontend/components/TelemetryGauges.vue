@@ -45,21 +45,21 @@ const ledColorClass = (i: number) => {
       />
     </div>
 
-    <div class="relative grid grid-cols-2 gap-4">
-      <div class="rounded-xl border border-white/10 bg-black/60 p-4">
-        <div class="text-6xl font-black italic tabular-nums leading-none text-white">
+    <div class="grid grid-cols-2 gap-3 mb-2">
+      <div class="bg-[#0a0a0f] rounded-lg border border-white/5 p-3 flex flex-col items-center justify-center shadow-inner">
+        <div class="text-4xl xl:text-5xl font-black italic text-white tracking-tighter tabular-nums leading-none">
           {{ speed }}
         </div>
-        <div class="mt-1 text-xs font-bold uppercase tracking-[0.22em] text-gray-400">
+        <div class="text-[10px] text-gray-500 uppercase tracking-[0.2em] mt-1 font-bold">
           KM/H
         </div>
       </div>
 
-      <div class="rounded-xl border border-white/10 bg-black/60 p-4">
-        <div class="text-6xl font-black italic tabular-nums leading-none text-white">
+      <div class="bg-[#0a0a0f] rounded-lg border border-white/5 p-3 flex flex-col items-center justify-center shadow-inner">
+        <div class="text-4xl xl:text-5xl font-black italic text-white tracking-tighter tabular-nums leading-none">
           {{ gear }}
         </div>
-        <div class="mt-1 text-xs font-bold uppercase tracking-[0.22em] text-gray-400">
+        <div class="text-[10px] text-gray-500 uppercase tracking-[0.2em] mt-1 font-bold">
           GEAR
         </div>
       </div>
@@ -97,7 +97,7 @@ const ledColorClass = (i: number) => {
           :style="{ width: Math.min((rpm / 15000) * 100, 100) + '%' }"
         />
       </div>
-      <div class="relative mt-2 text-right text-xs font-semibold text-slate-300 tabular-nums">
+      <div class="text-right text-xs text-slate-400 tabular-nums mt-1 font-bold">
         {{ rpm }}
       </div>
     </div>
