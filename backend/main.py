@@ -8,9 +8,12 @@ from typing import Any
 import orjson
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import select
 
 from backend.core.cache import cache_get, cache_set, close_redis, get_redis
 from backend.core.config import settings
+from backend.db.base import AsyncSessionLocal
+from backend.db.models import WarningEvent
 from backend.workers.telemetry_worker import (
     compute_vehicle_health,
     fetch_car_data,
@@ -204,6 +207,19 @@ async def drivers(session_key: str = "latest") -> dict[str, Any]:
     }
     await cache_set(cache_key, payload, ttl=60)
     return payload
+
+
+@app.get("/api/v1/warnings/history")
+async def get_warnings_history(session_key: str = "9161", limit: int = 10):
+    async with AsyncSessionLocal() as db:
+        stmt = (
+            select(WarningEvent)
+            .where(WarningEvent.session_key == session_key)
+            .order_by(WarningEvent.triggered_at.desc())
+            .limit(limit)
+        )
+        result = await db.execute(stmt)
+        return result.scalars().all()
 
 
 async def _ws_ping_loop(websocket: WebSocket) -> None:
