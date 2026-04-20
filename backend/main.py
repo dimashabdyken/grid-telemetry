@@ -15,6 +15,7 @@ from backend.core.cache import cache_get, cache_set, close_redis, get_redis
 from backend.core.config import settings
 from backend.db.base import AsyncSessionLocal
 from backend.db.models import WarningEvent
+from backend.schemas.telemetry import TelemetryRecordSchema
 from backend.workers.telemetry_worker import (
     compute_vehicle_health,
     poll_telemetry,
@@ -81,6 +82,33 @@ def _to_int(value: Any, default: int = 0) -> int:
         return default
 
 
+def _validate_telemetry_record(
+    record: dict[str, Any],
+    fallback_id: int,
+) -> dict[str, Any]:
+    payload = dict(record)
+
+    date_value = payload.get("date")
+    if not isinstance(date_value, str):
+        payload["date"] = (
+            date_value.isoformat()
+            if hasattr(date_value, "isoformat")
+            else str(date_value)
+        )
+
+    raw_id = payload.get("_id")
+    payload["_id"] = _to_int(raw_id, fallback_id)
+
+    return TelemetryRecordSchema.model_validate(payload).model_dump(by_alias=True)
+
+
+def _validate_telemetry_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        _validate_telemetry_record(record, fallback_id=index)
+        for index, record in enumerate(records)
+    ]
+
+
 async def _load_fastf1_session() -> Any:
     session = await asyncio.to_thread(fastf1.get_session, 2023, "Singapore", "R")
     await asyncio.to_thread(
@@ -140,7 +168,7 @@ async def fetch_car_data(
         return []
 
     records: list[dict[str, Any]] = []
-    for _, row in car_data.iterrows():
+    for index, (_, row) in enumerate(car_data.iterrows()):
         date_value = row.get("Date")
         date_iso = (
             str(date_value.isoformat()) if hasattr(date_value, "isoformat") else ""
@@ -158,7 +186,7 @@ async def fetch_car_data(
                 "gear": gear,
                 "n_gear": gear,
                 "drs": _to_int(row.get("DRS")),
-                "_id": date_value,
+                "_id": index,
             }
         )
 
@@ -255,9 +283,13 @@ async def telemetry(
     cache_key = f"telemetry:{session_key}:{driver_number}"
     cached = await cache_get(cache_key)
     if cached is not None:
+        cached_response = dict(cached)
+        cached_records = cached_response.get("records", [])
+        if isinstance(cached_records, list):
+            cached_response["records"] = _validate_telemetry_records(cached_records)
         if include_health:
-            return cached
-        stripped = dict(cached)
+            return cached_response
+        stripped = dict(cached_response)
         stripped.pop("health", None)
         return stripped
 
@@ -274,14 +306,15 @@ async def telemetry(
         ) from exc
 
     recent_records = records[-50:]
+    validated_records = _validate_telemetry_records(recent_records)
     response: dict[str, Any] = {
         "session_key": resolved_session_key,
         "driver_number": driver_number,
-        "count": len(recent_records),
-        "records": recent_records,
+        "count": len(validated_records),
+        "records": validated_records,
     }
     if include_health:
-        response["health"] = compute_vehicle_health(recent_records)
+        response["health"] = compute_vehicle_health(validated_records)
 
     await cache_set(cache_key, response)
     return response
@@ -332,6 +365,7 @@ async def telemetry_stream(
 ) -> None:
     room = f"{session_key}:{driver_number}"
     ping_task: asyncio.Task[None] | None = None
+    record_counter = 0
 
     await manager.connect(websocket, room)
     await websocket.send_text(
@@ -351,7 +385,15 @@ async def telemetry_stream(
             driver_number=driver_number,
             interval_seconds=settings.OPENF1_POLL_INTERVAL,
         ):
-            await manager.broadcast(room, payload)
+            outbound_payload = dict(payload)
+            latest_record = outbound_payload.get("latest")
+            if isinstance(latest_record, dict):
+                outbound_payload["latest"] = _validate_telemetry_record(
+                    latest_record,
+                    fallback_id=record_counter,
+                )
+                record_counter += 1
+            await manager.broadcast(room, outbound_payload)
     except WebSocketDisconnect:
         manager.disconnect(websocket, room)
     except Exception as exc:
