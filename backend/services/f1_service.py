@@ -10,10 +10,10 @@ import fastf1
 class F1Service:
     """Singleton service responsible for FastF1 session lifecycle."""
 
-    _instance: ClassVar["F1Service" | None] = None
+    _instance: ClassVar[F1Service | None] = None
     _instance_lock: ClassVar[Lock] = Lock()
 
-    def __new__(cls) -> "F1Service":
+    def __new__(cls) -> F1Service:
         if cls._instance is None:
             with cls._instance_lock:
                 if cls._instance is None:
@@ -41,7 +41,9 @@ class F1Service:
         if self._session is None:
             with self._session_lock:
                 if self._session is None:
-                    session = fastf1.get_session(self.year, self.event, self.session_name)
+                    session = fastf1.get_session(
+                        self.year, self.event, self.session_name
+                    )
                     try:
                         session.load(telemetry=True, laps=False, weather=False)
                     except Exception:
