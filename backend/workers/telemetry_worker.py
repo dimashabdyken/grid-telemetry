@@ -6,56 +6,14 @@ import math
 from datetime import UTC, datetime
 from typing import Any
 
-import fastf1
-
 from backend.db.base import AsyncSessionLocal
 from backend.db.service import save_telemetry_batch
+from backend.services.f1_service import f1_service
 
 RPM_REDLINE = 14500
 THROTTLE_WOT = 95
 BRAKE_HEAVY = 90
 DRS_FAULT_CODES = {14}
-
-fastf1.Cache.enable_cache("./cache")
-FASTF1_YEAR = 2023
-FASTF1_EVENT = "Singapore"
-FASTF1_SESSION = "R"
-
-_FASTF1_SESSION: Any | None = None
-_FASTF1_LOAD_TASK: asyncio.Task[Any] | None = None
-
-
-def initialize_fastf1_session() -> Any:
-    global _FASTF1_SESSION
-    if _FASTF1_SESSION is None:
-        session = fastf1.get_session(FASTF1_YEAR, FASTF1_EVENT, FASTF1_SESSION)
-        try:
-            session.load(telemetry=True, laps=False, weather=False)
-        except Exception:
-            fastf1.Cache.clear_cache("./cache")
-            raise
-        _FASTF1_SESSION = session
-    return _FASTF1_SESSION
-
-
-async def get_fastf1_session() -> Any:
-    global _FASTF1_SESSION
-    global _FASTF1_LOAD_TASK
-
-    if _FASTF1_SESSION is not None:
-        return _FASTF1_SESSION
-
-    if _FASTF1_LOAD_TASK is None:
-        _FASTF1_LOAD_TASK = asyncio.create_task(
-            asyncio.to_thread(initialize_fastf1_session)
-        )
-
-    try:
-        _FASTF1_SESSION = await _FASTF1_LOAD_TASK
-        return _FASTF1_SESSION
-    finally:
-        if _FASTF1_SESSION is not None:
-            _FASTF1_LOAD_TASK = None
 
 
 def _row_to_record(row: Any, session_key: str, driver_number: int) -> dict[str, Any]:
@@ -172,17 +130,7 @@ async def poll_telemetry(
     resolved_driver = driver_number if driver_number is not None else 1
     resolved_session_key = str(session_key)
 
-    await get_fastf1_session()
-    session = _FASTF1_SESSION
-    if session is None:
-        raise RuntimeError("FastF1 session is not initialized")
-
-    # Matches the requested baseline retrieval of historical telemetry.
-    car_data = _FASTF1_SESSION.car_data.get("1")
-    if resolved_driver != 1:
-        driver_car_data = _FASTF1_SESSION.car_data.get(str(resolved_driver))
-        if driver_car_data is not None and not driver_car_data.empty:
-            car_data = driver_car_data
+    car_data = await asyncio.to_thread(f1_service.get_car_data, str(resolved_driver))
 
     if car_data is None or car_data.empty:
         logging.warning("FastF1 returned no car data for requested driver")
@@ -258,8 +206,7 @@ async def poll_telemetry(
 
 
 async def _demo() -> None:
-    session = await get_fastf1_session()
-    car_data = session.car_data.get("1")
+    car_data = await asyncio.to_thread(f1_service.get_car_data, "1")
     records = []
     if car_data is not None and not car_data.empty:
         records = [
