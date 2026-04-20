@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import asynccontextmanager, suppress
+from time import monotonic
 from typing import Any
 
 import fastf1
@@ -28,14 +29,17 @@ logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL.upper(), logging.I
 class ConnectionManager:
     def __init__(self) -> None:
         self._connections: dict[str, list[WebSocket]] = {}
+        self._last_activity: dict[WebSocket, float] = {}
 
     async def connect(self, ws: WebSocket, room: str) -> None:
         await ws.accept()
         self._connections.setdefault(room, []).append(ws)
+        self.touch_activity(ws)
 
     def disconnect(self, ws: WebSocket, room: str) -> None:
         sockets = self._connections.get(room)
         if not sockets:
+            self._last_activity.pop(ws, None)
             return
 
         if ws in sockets:
@@ -43,6 +47,20 @@ class ConnectionManager:
 
         if not sockets:
             self._connections.pop(room, None)
+
+        self._last_activity.pop(ws, None)
+
+    def touch_activity(self, ws: WebSocket) -> None:
+        self._last_activity[ws] = monotonic()
+
+    def seconds_since_activity(self, ws: WebSocket) -> float:
+        last_seen = self._last_activity.get(ws)
+        if last_seen is None:
+            return float("inf")
+        return max(0.0, monotonic() - last_seen)
+
+    def is_connected(self, ws: WebSocket, room: str) -> bool:
+        return ws in self._connections.get(room, [])
 
     async def broadcast(self, room: str, payload: dict[str, Any]) -> None:
         sockets = list(self._connections.get(room, []))
@@ -66,6 +84,8 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+PING_INTERVAL_SECONDS = 15.0
+HEARTBEAT_TIMEOUT_SECONDS = 30.0
 
 
 def _to_float(value: Any, default: float = 0.0) -> float:
@@ -351,10 +371,56 @@ async def get_warnings_history(session_key: str = "9161", limit: int = 10):
         return result.scalars().all()
 
 
-async def _ws_ping_loop(websocket: WebSocket) -> None:
+async def _ws_ping_loop(websocket: WebSocket, room: str) -> None:
     while True:
-        await asyncio.sleep(15)
+        await asyncio.sleep(PING_INTERVAL_SECONDS)
+        if not manager.is_connected(websocket, room):
+            return
+        if manager.seconds_since_activity(websocket) > HEARTBEAT_TIMEOUT_SECONDS:
+            raise TimeoutError("WebSocket heartbeat timeout")
         await websocket.send_text(orjson.dumps({"type": "ping"}).decode("utf-8"))
+
+
+async def _ws_receive_loop(websocket: WebSocket, room: str) -> None:
+    while True:
+        if not manager.is_connected(websocket, room):
+            return
+        message = await websocket.receive_text()
+        manager.touch_activity(websocket)
+        try:
+            parsed = orjson.loads(message)
+        except Exception:
+            continue
+
+        if isinstance(parsed, dict) and parsed.get("type") == "pong":
+            manager.touch_activity(websocket)
+
+
+async def _ws_telemetry_loop(
+    websocket: WebSocket,
+    room: str,
+    session_key: str,
+    driver_number: int,
+) -> None:
+    record_counter = 0
+    async for payload in poll_telemetry(
+        session_key=session_key,
+        driver_number=driver_number,
+        interval_seconds=settings.OPENF1_POLL_INTERVAL,
+    ):
+        if not manager.is_connected(websocket, room):
+            return
+
+        outbound_payload = dict(payload)
+        latest_record = outbound_payload.get("latest")
+        if isinstance(latest_record, dict):
+            outbound_payload["latest"] = _validate_telemetry_record(
+                latest_record,
+                fallback_id=record_counter,
+            )
+            record_counter += 1
+
+        await manager.broadcast(room, outbound_payload)
 
 
 @app.websocket("/ws/telemetry/{session_key}/{driver_number}")
@@ -365,7 +431,8 @@ async def telemetry_stream(
 ) -> None:
     room = f"{session_key}:{driver_number}"
     ping_task: asyncio.Task[None] | None = None
-    record_counter = 0
+    receive_task: asyncio.Task[None] | None = None
+    telemetry_task: asyncio.Task[None] | None = None
 
     await manager.connect(websocket, room)
     await websocket.send_text(
@@ -377,24 +444,36 @@ async def telemetry_stream(
             }
         ).decode("utf-8")
     )
-    ping_task = asyncio.create_task(_ws_ping_loop(websocket))
+    ping_task = asyncio.create_task(_ws_ping_loop(websocket, room))
+    receive_task = asyncio.create_task(_ws_receive_loop(websocket, room))
+    telemetry_task = asyncio.create_task(
+        _ws_telemetry_loop(websocket, room, session_key, driver_number)
+    )
 
     try:
-        async for payload in poll_telemetry(
-            session_key=session_key,
-            driver_number=driver_number,
-            interval_seconds=settings.OPENF1_POLL_INTERVAL,
-        ):
-            outbound_payload = dict(payload)
-            latest_record = outbound_payload.get("latest")
-            if isinstance(latest_record, dict):
-                outbound_payload["latest"] = _validate_telemetry_record(
-                    latest_record,
-                    fallback_id=record_counter,
-                )
-                record_counter += 1
-            await manager.broadcast(room, outbound_payload)
+        tasks = [task for task in (ping_task, receive_task, telemetry_task) if task]
+        done, pending = await asyncio.wait(
+            tasks,
+            return_when=asyncio.FIRST_EXCEPTION,
+        )
+
+        for task in pending:
+            task.cancel()
+        for task in pending:
+            with suppress(asyncio.CancelledError):
+                await task
+
+        for task in done:
+            exc = task.exception()
+            if exc is None:
+                continue
+            if isinstance(exc, (WebSocketDisconnect, TimeoutError)):
+                manager.disconnect(websocket, room)
+                return
+            raise exc
     except WebSocketDisconnect:
+        manager.disconnect(websocket, room)
+    except TimeoutError:
         manager.disconnect(websocket, room)
     except Exception as exc:
         try:
@@ -405,8 +484,10 @@ async def telemetry_stream(
             pass
         manager.disconnect(websocket, room)
     finally:
-        if ping_task is not None:
-            ping_task.cancel()
+        for task in (ping_task, receive_task, telemetry_task):
+            if task is None:
+                continue
+            task.cancel()
             with suppress(asyncio.CancelledError):
-                await ping_task
+                await task
         manager.disconnect(websocket, room)

@@ -12,6 +12,8 @@ declare function useRuntimeConfig(): RuntimeConfig
 
 const RECONNECT_DELAY_MS = 2000
 const MAX_RECONNECT_ATTEMPTS = 5
+const HEARTBEAT_TIMEOUT_MS = 30_000
+const HEARTBEAT_CHECK_INTERVAL_MS = 5_000
 
 const connectionState = ref<ConnectionState>('closed')
 const latestTelemetry = ref<WSTelemetryMessage['latest'] | null>(null)
@@ -24,6 +26,7 @@ const reconnectAttempts = ref(0)
 
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let demoTimer: ReturnType<typeof setInterval> | null = null
+let heartbeatMonitorTimer: ReturnType<typeof setInterval> | null = null
 let intentionalClose = false
 let lastSessionKey: string | number | null = null
 let lastDriverNumber: number | null = null
@@ -39,6 +42,13 @@ const stopDemoMode = () => {
     if (demoTimer) {
         clearInterval(demoTimer)
         demoTimer = null
+    }
+}
+
+const stopHeartbeatMonitor = () => {
+    if (heartbeatMonitorTimer) {
+        clearInterval(heartbeatMonitorTimer)
+        heartbeatMonitorTimer = null
     }
 }
 
@@ -77,6 +87,24 @@ export const enableDemoMode = () => {
 }
 
 export const useTelemetrySocket = () => {
+    const startHeartbeatMonitor = () => {
+        stopHeartbeatMonitor()
+        heartbeatMonitorTimer = setInterval(() => {
+            if (connectionState.value !== 'open' || !socket.value) {
+                return
+            }
+
+            const lastPingMs = lastPing.value?.getTime() ?? 0
+            if (Date.now() - lastPingMs <= HEARTBEAT_TIMEOUT_MS) {
+                return
+            }
+
+            if (socket.value.readyState === WebSocket.OPEN) {
+                socket.value.close()
+            }
+        }, HEARTBEAT_CHECK_INTERVAL_MS)
+    }
+
     const scheduleReconnect = () => {
         if (
             intentionalClose ||
@@ -118,6 +146,9 @@ export const useTelemetrySocket = () => {
                 break
             case 'ping':
                 lastPing.value = new Date()
+                if (socket.value?.readyState === WebSocket.OPEN) {
+                    socket.value.send(JSON.stringify({ type: 'pong' }))
+                }
                 break
             case 'error':
                 error.value = parsedMessage.message
@@ -154,10 +185,13 @@ export const useTelemetrySocket = () => {
             connectionState.value = 'open'
             error.value = null
             reconnectAttempts.value = 0
+            lastPing.value = new Date()
+            startHeartbeatMonitor()
         }
 
         ws.onclose = () => {
             socket.value = null
+            stopHeartbeatMonitor()
             scheduleReconnect()
         }
 
@@ -174,6 +208,7 @@ export const useTelemetrySocket = () => {
         intentionalClose = true
         clearReconnectTimer()
         stopDemoMode()
+        stopHeartbeatMonitor()
         reconnectAttempts.value = 0
 
         if (socket.value) {
