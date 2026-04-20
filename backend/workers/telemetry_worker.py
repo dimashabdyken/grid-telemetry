@@ -122,6 +122,30 @@ def compute_vehicle_health(records: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _process_record_sync(
+    record: dict[str, Any], recent_records: list[dict[str, Any]]
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    health = compute_vehicle_health(recent_records)
+
+    record_dict = record.to_dict() if hasattr(record, "to_dict") else dict(record)
+
+    # Normalize values for JSON-safe output.
+    for key, value in record_dict.items():
+        if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+            record_dict[key] = None
+        elif hasattr(value, "isoformat"):
+            record_dict[key] = value.isoformat()
+        elif hasattr(value, "item"):
+            record_dict[key] = value.item()
+            item_value = record_dict[key]
+            if isinstance(item_value, float) and (
+                math.isnan(item_value) or math.isinf(item_value)
+            ):
+                record_dict[key] = None
+
+    return record_dict, health
+
+
 async def poll_telemetry(
     session_key: str | int = 9161,
     driver_number: int | None = 1,
@@ -163,28 +187,11 @@ async def poll_telemetry(
         for i, record in enumerate(records):
             try:
                 recent_records = records[max(0, i - 9) : i + 1]
-                health = compute_vehicle_health(recent_records)
-
-                # Convert record to dict
-                record_dict = (
-                    record.to_dict() if hasattr(record, "to_dict") else dict(record)
+                record_dict, health = await asyncio.to_thread(
+                    _process_record_sync,
+                    record,
+                    recent_records,
                 )
-
-                # Fix serialization: convert Timestamp/datetime and numpy scalars.
-                for key, value in record_dict.items():
-                    if isinstance(value, float) and (
-                        math.isnan(value) or math.isinf(value)
-                    ):
-                        record_dict[key] = None
-                    elif hasattr(value, "isoformat"):
-                        record_dict[key] = value.isoformat()
-                    elif hasattr(value, "item"):
-                        record_dict[key] = value.item()
-                        item_value = record_dict[key]
-                        if isinstance(item_value, float) and (
-                            math.isnan(item_value) or math.isinf(item_value)
-                        ):
-                            record_dict[key] = None
 
                 asyncio.create_task(_persist([record_dict], health))
 
@@ -197,6 +204,8 @@ async def poll_telemetry(
                     "latest": record_dict,
                 }
 
+                # Keep the event loop responsive for websocket heartbeat tasks.
+                await asyncio.sleep(0.01)
                 await asyncio.sleep(interval_seconds)
             except Exception as exc:  # noqa: BLE001
                 logging.error(f"Error in replay loop: {exc}")
