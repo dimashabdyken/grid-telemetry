@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
-import { getDrivers, getSession } from '~~/lib/api'
-import DriverCard from '~~/components/DriverCard.vue'
-import HealthScoreRing from '~~/components/HealthScoreRing.vue'
-import MasterWarningPanel from '~~/components/MasterWarningPanel.vue'
-import TelemetryChart from '~~/components/TelemetryChart.vue'
-import TelemetryGauges from '~~/components/TelemetryGauges.vue'
-import WarningHistoryPanel from '~~/components/WarningHistoryPanel.vue'
-import { useHealthScore } from '~~/composables/useHealthScore'
-import { enableDemoMode, useTelemetrySocket } from '~~/composables/useTelemetrySocket'
+import { getDrivers, getSession } from '~/lib/api'
+import DriverCard from '~/components/DriverCard.vue'
+import HealthScoreRing from '~/components/HealthScoreRing.vue'
+import MasterWarningPanel from '~/components/MasterWarningPanel.vue'
+import TelemetryChart from '~/components/TelemetryChart.vue'
+import TelemetryGauges from '~/components/TelemetryGauges.vue'
+import WarningHistoryPanel from '~/components/WarningHistoryPanel.vue'
+import { useHealthScore } from '~/composables/useHealthScore'
+import { enableDemoMode, useTelemetrySocket } from '~/composables/useTelemetrySocket'
 
 const sessionInfo = ref<Awaited<ReturnType<typeof getSession>> | null>(null)
 const driverNumber = ref(1)

@@ -2,8 +2,9 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+  srcDir: 'app/',
   modules: ['@nuxtjs/tailwindcss'],
-  css: [new URL('./assets/css/globals.css', import.meta.url).pathname],
+  css: ['~/assets/css/globals.css'],
   runtimeConfig: {
     public: {
       apiBaseUrl:
