@@ -58,12 +58,6 @@ async def get_fastf1_session() -> Any:
             _FASTF1_LOAD_TASK = None
 
 
-try:
-    initialize_fastf1_session()
-except Exception as exc:  # noqa: BLE001
-    logging.warning(f"FastF1 global preload failed, will retry lazily: {exc}")
-
-
 def _row_to_record(row: Any, session_key: str, driver_number: int) -> dict[str, Any]:
     date_value = row.get("Date")
     date_iso = (
