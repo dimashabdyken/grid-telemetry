@@ -70,14 +70,14 @@ manager = ConnectionManager()
 def _to_float(value: Any, default: float = 0.0) -> float:
     try:
         return float(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
 
 
 def _to_int(value: Any, default: int = 0) -> int:
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
 
 
@@ -98,7 +98,9 @@ async def fetch_session(session_key: str | int = "latest") -> dict[str, Any]:
         "session_key": "2023-Singapore-R" if session_key == "latest" else session_key,
         "session_name": "Singapore Race",
         "date_start": str(getattr(session, "date", "")),
-        "event_name": getattr(getattr(session, "event", None), "EventName", "Singapore"),
+        "event_name": getattr(
+            getattr(session, "event", None), "EventName", "Singapore"
+        ),
     }
 
 
@@ -114,7 +116,9 @@ async def fetch_drivers(_: str | int) -> list[dict[str, Any]]:
         drivers.append(
             {
                 "driver_number": _to_int(drv_code),
-                "name": details.get("FullName") or details.get("Abbreviation") or drv_code,
+                "name": details.get("FullName")
+                or details.get("Abbreviation")
+                or drv_code,
                 "abbreviation": details.get("Abbreviation") or drv_code,
                 "team_name": details.get("TeamName") or "",
             }
@@ -138,7 +142,9 @@ async def fetch_car_data(
     records: list[dict[str, Any]] = []
     for _, row in car_data.iterrows():
         date_value = row.get("Date")
-        date_iso = str(date_value.isoformat()) if hasattr(date_value, "isoformat") else ""
+        date_iso = (
+            str(date_value.isoformat()) if hasattr(date_value, "isoformat") else ""
+        )
         gear = _to_int(row.get("nGear"))
         records.append(
             {
