@@ -7,3 +7,6 @@ node_modules/
 .output/
 *.pyc
 .DS_Store
+cache/
+*.pkl
+*.sqlite
