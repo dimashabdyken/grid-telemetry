@@ -27,10 +27,11 @@ class Settings(BaseSettings):
         "postgresql+asyncpg://grid:telemetry@localhost:5433/grid_telemetry"
     )
 
-    # OpenF1
-    OPENF1_BASE_URL: str = "https://api.openf1.org/v1"
-    OPENF1_SESSION_KEY: str = "latest"
-    OPENF1_POLL_INTERVAL: float = 0.27
+    # FastF1
+    FASTF1_CACHE_DIR: str = "../../cache"
+    FASTF1_DEFAULT_YEAR: int = 2023
+    FASTF1_DEFAULT_EVENT: str = "Singapore"
+    FASTF1_DEFAULT_SESSION: str = "R"
 
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
