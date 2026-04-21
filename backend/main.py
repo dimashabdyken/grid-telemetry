@@ -385,10 +385,18 @@ async def _ws_receive_loop(websocket: WebSocket, room: str) -> None:
     while True:
         if not manager.is_connected(websocket, room):
             return
-        message = await websocket.receive_text()
+        message = await websocket.receive()
+        if message["type"] == "websocket.disconnect":
+            break
+
+        if message.get("type") != "websocket.receive" or "text" not in message:
+            continue
+
         manager.touch_activity(websocket)
+
+        text_payload = message["text"]
         try:
-            parsed = orjson.loads(message)
+            parsed = orjson.loads(text_payload)
         except Exception:
             continue
 
