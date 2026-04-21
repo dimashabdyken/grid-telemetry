@@ -414,7 +414,6 @@ async def _ws_telemetry_loop(
     async for payload in poll_telemetry(
         session_key=session_key,
         driver_number=driver_number,
-        interval_seconds=settings.OPENF1_POLL_INTERVAL,
     ):
         if not manager.is_connected(websocket, room):
             return
