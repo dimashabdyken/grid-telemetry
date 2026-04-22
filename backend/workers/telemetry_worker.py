@@ -14,6 +14,8 @@ RPM_REDLINE = 14500
 THROTTLE_WOT = 95
 BRAKE_HEAVY = 90
 DRS_FAULT_CODES = {14}
+REPLAY_WINDOW_SIZE = 600
+REPLAY_WINDOW_STRIDE_DIVISOR = 6
 
 
 def _row_to_record(row: Any, session_key: str, driver_number: int) -> dict[str, Any]:
@@ -146,10 +148,45 @@ def _process_record_sync(
     return record_dict, health
 
 
+def _select_replay_window(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if len(records) <= REPLAY_WINDOW_SIZE:
+        return records
+
+    window_size = REPLAY_WINDOW_SIZE
+    max_start = len(records) - window_size
+    stride = max(1, window_size // REPLAY_WINDOW_STRIDE_DIVISOR)
+
+    speeds = [max(0.0, _to_float(record.get("speed"))) for record in records]
+    prefix_sum = [0.0]
+    for speed in speeds:
+        prefix_sum.append(prefix_sum[-1] + speed)
+
+    best_start = max_start  # default to most recent for recency
+    best_score = -1.0
+    for start in range(0, max_start + 1, stride):
+        window_total = prefix_sum[start + window_size] - prefix_sum[start]
+        avg_speed = window_total / window_size
+        # Prefer racing-like pace but slightly bias toward newer segments.
+        recency_bonus = (start / max_start) * 5.0 if max_start > 0 else 0.0
+        score = avg_speed + recency_bonus
+        if score > best_score:
+            best_score = score
+            best_start = start
+
+    replay_slice = records[best_start : best_start + window_size]
+    logging.info(
+        "Replay window selected at index %s (size=%s, avg_speed=%.1f km/h)",
+        best_start,
+        window_size,
+        sum(_to_float(item.get("speed")) for item in replay_slice) / window_size,
+    )
+    return replay_slice
+
+
 async def poll_telemetry(
     session_key: str | int = 9161,
     driver_number: int | None = 1,
-    interval_seconds: float = 1.5,
+    interval_seconds: float = 0.15,
 ):
     resolved_driver = driver_number if driver_number is not None else 1
     resolved_session_key = str(session_key)
@@ -174,6 +211,9 @@ async def poll_telemetry(
         for _, row in car_data.iterrows()
     ]
 
+    # Pick a representative high-pace contiguous segment for better replay realism.
+    replay_records = _select_replay_window(records)
+
     async def _persist(
         records_to_save: list[dict[str, Any]], health_data: dict[str, Any]
     ):
@@ -184,9 +224,9 @@ async def poll_telemetry(
             logging.error(f"DB save failed: {exc}")
 
     while True:
-        for i, record in enumerate(records):
+        for i, record in enumerate(replay_records):
             try:
-                recent_records = records[max(0, i - 9) : i + 1]
+                recent_records = replay_records[max(0, i - 9) : i + 1]
                 record_dict, health = await asyncio.to_thread(
                     _process_record_sync,
                     record,
