@@ -358,6 +358,16 @@ async def drivers(session_key: str = "latest") -> dict[str, Any]:
     return payload
 
 
+@app.get("/api/v1/tyres")
+async def get_tyres(session_key: str = "latest", driver_number: int = 1):
+    # Ensure session data is initialized before tyre lookup.
+    await _resolve_session_key(session_key)
+
+    # Run pandas dataframe lookups off the event loop.
+    data = await asyncio.to_thread(f1_service.get_tyre_status, str(driver_number))
+    return data
+
+
 @app.get("/api/v1/warnings/history")
 async def get_warnings_history(session_key: str = "9161", limit: int = 10):
     async with AsyncSessionLocal() as db:

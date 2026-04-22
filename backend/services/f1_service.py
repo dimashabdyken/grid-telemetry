@@ -63,7 +63,7 @@ class F1Service:
                     session = fastf1.get_session(
                         self.year, self.event, self.session_name
                     )
-                    session.load(telemetry=True, laps=False, weather=False)
+                    session.load(telemetry=True, laps=True, weather=False)
                     self._session = session
         return self._session
 
@@ -79,6 +79,33 @@ class F1Service:
             return car_data
 
         return session.car_data.get("1")
+
+    def get_tyre_status(self, driver_number: str) -> dict[str, str | int]:
+        if not self._session or self._session.laps.empty:
+            return {"compound": "UNKNOWN", "life": 0}
+
+        # Get laps for the specific driver.
+        driver_laps = self._session.laps.pick_driver(str(driver_number))
+        if driver_laps.empty:
+            return {"compound": "UNKNOWN", "life": 0}
+
+        # Keep only laps that have a known compound so we can infer current tyre.
+        valid_laps = driver_laps.dropna(subset=["Compound"])
+        if valid_laps.empty:
+            return {"compound": "UNKNOWN", "life": 0}
+
+        last_lap = valid_laps.iloc[-1]
+
+        import pandas as pd
+
+        tyre_life = last_lap.get("TyreLife", 0)
+        if pd.isna(tyre_life):
+            tyre_life = 0
+
+        return {
+            "compound": str(last_lap["Compound"]),
+            "life": int(tyre_life),
+        }
 
 
 f1_service = F1Service()
