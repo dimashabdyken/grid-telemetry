@@ -1,11 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-
-interface WarningEvent {
-  code: string
-  severity: string
-  triggered_at: string
-}
+import { getWarningsHistory, type WarningEvent } from '~/lib/api'
 
 const events = ref<WarningEvent[]>([])
 const loading = ref(true)
@@ -30,11 +25,7 @@ const severityClass = (severity: string) => {
 
 onMounted(async () => {
   try {
-    const response = await fetch('/api/v1/warnings/history')
-    if (!response.ok) {
-      throw new Error(`Request failed with status ${response.status}`)
-    }
-    const data = (await response.json()) as WarningEvent[]
+    const data = await getWarningsHistory(9161, 20)
     events.value = Array.isArray(data) ? data : []
   } catch {
     events.value = []

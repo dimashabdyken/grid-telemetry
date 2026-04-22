@@ -27,12 +27,12 @@ defineProps<{
         v-else
         class="w-16 h-16 rounded-full border-2 border-white/10 bg-black/40 text-white font-black text-lg flex items-center justify-center"
       >
-        {{ driver?.name_acronym || '---' }}
+        {{ driver?.name_acronym || driver?.abbreviation || '---' }}
       </div>
 
       <div class="min-w-0">
         <p class="text-2xl font-black text-white uppercase tracking-tight truncate">
-          {{ driver?.full_name || 'Loading...' }}
+          {{ driver?.full_name || driver?.name || 'Loading...' }}
         </p>
         <p class="text-sm font-bold text-gray-400">
           {{ driver?.team_name || 'N/A' }} | #{{ driver?.driver_number || '?' }}
