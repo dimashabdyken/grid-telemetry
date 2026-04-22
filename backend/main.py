@@ -165,11 +165,15 @@ async def fetch_drivers(_: str | int) -> list[dict[str, Any]]:
         drivers.append(
             {
                 "driver_number": _to_int(drv_code),
-                "name": details.get("FullName")
+                "full_name": details.get("FullName")
                 or details.get("Abbreviation")
                 or drv_code,
-                "abbreviation": details.get("Abbreviation") or drv_code,
+                "name_acronym": details.get("Abbreviation") or drv_code,
                 "team_name": details.get("TeamName") or "",
+                "team_colour": details.get("TeamColor") or "ffffff",
+                "headshot_url": details.get("HeadshotUrl")
+                or "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/M/MAXVER01_Max_Verstappen/maxver01.png.transform/2col/image.png",
+                "country_code": details.get("CountryCode") or "",
             }
         )
     return drivers
