@@ -6,7 +6,6 @@ from contextlib import asynccontextmanager, suppress
 from time import monotonic
 from typing import Any
 
-import fastf1
 import orjson
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +16,7 @@ from backend.core.config import settings
 from backend.db.base import AsyncSessionLocal
 from backend.db.models import WarningEvent
 from backend.schemas.telemetry import TelemetryRecordSchema
+from backend.services.f1_service import f1_service
 from backend.workers.telemetry_worker import (
     compute_vehicle_health,
     poll_telemetry,
@@ -24,6 +24,7 @@ from backend.workers.telemetry_worker import (
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
+logging.getLogger("requests_cache.session").setLevel(logging.ERROR)
 
 
 class ConnectionManager:
@@ -129,22 +130,22 @@ def _validate_telemetry_records(records: list[dict[str, Any]]) -> list[dict[str,
     ]
 
 
-async def _load_fastf1_session() -> Any:
-    session = await asyncio.to_thread(fastf1.get_session, 2023, "Singapore", "R")
-    await asyncio.to_thread(
-        session.load,
-        telemetry=True,
-        laps=True,
-        weather=False,
+def _default_session_key() -> str:
+    return (
+        f"{settings.FASTF1_DEFAULT_YEAR}-"
+        f"{settings.FASTF1_DEFAULT_EVENT}-"
+        f"{settings.FASTF1_DEFAULT_SESSION}"
     )
-    return session
 
 
 async def fetch_session(session_key: str | int = "latest") -> dict[str, Any]:
-    session = await _load_fastf1_session()
+    session = await asyncio.to_thread(f1_service.get_session)
     return {
-        "session_key": "2023-Singapore-R" if session_key == "latest" else session_key,
-        "session_name": "Singapore Race",
+        "session_key": (
+            _default_session_key() if session_key == "latest" else session_key
+        ),
+        "session_name": getattr(session, "name", "Singapore Race"),
+        "year": settings.FASTF1_DEFAULT_YEAR,
         "date_start": str(getattr(session, "date", "")),
         "event_name": getattr(
             getattr(session, "event", None), "EventName", "Singapore"
@@ -153,7 +154,7 @@ async def fetch_session(session_key: str | int = "latest") -> dict[str, Any]:
 
 
 async def fetch_drivers(_: str | int) -> list[dict[str, Any]]:
-    session = await _load_fastf1_session()
+    session = await asyncio.to_thread(f1_service.get_session)
     drivers: list[dict[str, Any]] = []
     for drv in sorted(session.drivers):
         drv_code = str(drv)
@@ -178,12 +179,9 @@ async def fetch_car_data(
     _: str | int,
     driver_number: int | None = None,
 ) -> list[dict[str, Any]]:
-    session = await _load_fastf1_session()
     resolved_driver = driver_number if driver_number is not None else 1
 
-    car_data = session.car_data.get(str(resolved_driver))
-    if car_data is None or car_data.empty:
-        car_data = session.car_data.get("1")
+    car_data = await asyncio.to_thread(f1_service.get_car_data, str(resolved_driver))
     if car_data is None or car_data.empty:
         return []
 
@@ -196,7 +194,7 @@ async def fetch_car_data(
         gear = _to_int(row.get("nGear"))
         records.append(
             {
-                "session_key": "2023-Singapore-R",
+                "session_key": _default_session_key(),
                 "date": date_iso,
                 "driver_number": resolved_driver,
                 "speed": _to_float(row.get("Speed")),
@@ -378,7 +376,11 @@ async def _ws_ping_loop(websocket: WebSocket, room: str) -> None:
             return
         if manager.seconds_since_activity(websocket) > HEARTBEAT_TIMEOUT_SECONDS:
             raise TimeoutError("WebSocket heartbeat timeout")
-        await websocket.send_text(orjson.dumps({"type": "ping"}).decode("utf-8"))
+        try:
+            await websocket.send_text(orjson.dumps({"type": "ping"}).decode("utf-8"))
+        except WebSocketDisconnect, RuntimeError:
+            # The connection is closing/closed; exit ping loop without escalating.
+            return
 
 
 async def _ws_receive_loop(websocket: WebSocket, room: str) -> None:
@@ -461,7 +463,7 @@ async def telemetry_stream(
         tasks = [task for task in (ping_task, receive_task, telemetry_task) if task]
         done, pending = await asyncio.wait(
             tasks,
-            return_when=asyncio.FIRST_EXCEPTION,
+            return_when=asyncio.FIRST_COMPLETED,
         )
 
         for task in pending:
