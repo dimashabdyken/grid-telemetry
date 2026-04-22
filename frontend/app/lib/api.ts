@@ -15,6 +15,11 @@ export interface WarningEvent {
     triggered_at: string
 }
 
+export interface TyreStatus {
+    compound: string
+    life: number
+}
+
 export class ApiError extends Error {
     constructor(
         message: string,
@@ -152,4 +157,16 @@ export async function getWarningsHistory(
     })
 
     return apiFetch<WarningEvent[]>(endpoint)
+}
+
+export async function getTyreStatus(
+    sessionKey: string | number = 'latest',
+    driverNumber: number = 1
+): Promise<TyreStatus> {
+    return apiFetch<TyreStatus>(
+        buildUrl('/api/v1/tyres', {
+            session_key: sessionKey,
+            driver_number: driverNumber
+        })
+    )
 }

@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
-import { getDrivers, getSession } from '~/lib/api'
+import { getDrivers, getSession, getTyreStatus } from '~/lib/api'
 import DriverCard from '~/components/DriverCard.vue'
 import HealthScoreRing from '~/components/HealthScoreRing.vue'
 import MasterWarningPanel from '~/components/MasterWarningPanel.vue'
 import TelemetryChart from '~/components/TelemetryChart.vue'
 import TelemetryGauges from '~/components/TelemetryGauges.vue'
+import TyreStatusCard from '~/components/TyreStatusCard.vue'
 import WarningHistoryPanel from '~/components/WarningHistoryPanel.vue'
 import { useHealthScore } from '~/composables/useHealthScore'
 import { enableDemoMode, useTelemetrySocket } from '~/composables/useTelemetrySocket'
@@ -13,6 +14,7 @@ import { enableDemoMode, useTelemetrySocket } from '~/composables/useTelemetrySo
 const sessionInfo = ref<Awaited<ReturnType<typeof getSession>> | null>(null)
 const driverNumber = ref(1)
 const driverInfo = ref<any>(null)
+const tyreInfo = ref<any>(null)
 
 const {
   connect,
@@ -29,9 +31,11 @@ onMounted(async () => {
   connect(9161, 1)
   try {
     sessionInfo.value = await getSession(9161)
+    tyreInfo.value = await getTyreStatus(9161, 1)
   } catch (mountError) {
     console.warn('Backend offline, starting DEMO MODE for UI development')
     sessionInfo.value = { session_name: 'Singapore GP (DEMO)', year: 2023 } as any
+    tyreInfo.value = { compound: 'SOFT', life: 12 } as any
     driverInfo.value = {
       full_name: 'Max Verstappen',
       team_name: 'Red Bull Racing',
@@ -48,6 +52,14 @@ onMounted(async () => {
   } catch (e) {
     console.warn('Failed to fetch drivers')
   }
+
+  if (!tyreInfo.value) {
+    try {
+      tyreInfo.value = await getTyreStatus(9161, 1)
+    } catch {
+      console.warn('Failed to fetch tyre status')
+    }
+  }
 })
 
 onUnmounted(() => {
@@ -60,8 +72,9 @@ onUnmounted(() => {
     <header
       class="border-b border-white/10 border-t-4 border-t-[#e10600] bg-black/40 px-6 py-4 flex items-center justify-between"
     >
-      <h1 class="text-2xl font-black tracking-tighter uppercase text-white">
+      <h1 class="text-2xl font-black tracking-tighter uppercase text-white flex items-center gap-3">
         Grid Telemetry
+        <span v-if="sessionInfo" class="text-gray-500 font-normal text-lg">| {{ sessionInfo.session_name }} {{ sessionInfo.year }}</span>
       </h1>
 
       <div class="flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 text-xs font-bold uppercase tracking-wider">
@@ -78,25 +91,7 @@ onUnmounted(() => {
 
     <main class="p-6 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       <DriverCard :driver="driverInfo" />
-
-      <section
-        class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg"
-      >
-        <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold">
-          Session
-        </h2>
-        <div class="space-y-1">
-          <p class="text-3xl font-black tracking-tight text-white">
-            {{ sessionInfo?.session_name ?? 'Loading...' }}
-          </p>
-          <p class="text-xl font-extrabold text-slate-200">
-            {{ sessionInfo?.year ?? '-' }}
-          </p>
-        </div>
-        <p v-if="error" class="text-[#e10600] text-xs font-bold uppercase tracking-wide">
-          {{ error }}
-        </p>
-      </section>
+      <TyreStatusCard :tyre-status="tyreInfo" />
 
       <section
         class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg"
