@@ -70,6 +70,10 @@ class F1Service:
     def get_session(self) -> Any:
         return self._load_session_once()
 
+    @property
+    def session(self) -> Any | None:
+        return self._session
+
     def get_car_data(self, driver_number: str) -> Any:
         session = self._load_session_once()
         requested_driver = str(driver_number or "1")
@@ -106,6 +110,34 @@ class F1Service:
             "compound": str(last_lap["Compound"]),
             "life": int(tyre_life),
         }
+
+    def get_drivers(self) -> list[dict[str, Any]]:
+        if self.session is None or not hasattr(self.session, "drivers"):
+            return []
+
+        drivers: list[dict[str, Any]] = []
+        for drv in sorted(self.session.drivers):
+            drv_code = str(drv)
+            try:
+                details = self.session.get_driver(drv_code)
+            except Exception:
+                details = {}
+
+            drivers.append(
+                {
+                    "driver_number": int(drv_code) if str(drv_code).isdigit() else 0,
+                    "full_name": details.get("FullName")
+                    or details.get("Abbreviation")
+                    or drv_code,
+                    "name_acronym": details.get("Abbreviation") or drv_code,
+                    "team_name": details.get("TeamName") or "",
+                    "team_colour": details.get("TeamColor") or "ffffff",
+                    "headshot_url": details.get("HeadshotUrl")
+                    or "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/M/MAXVER01_Max_Verstappen/maxver01.png.transform/2col/image.png",
+                }
+            )
+
+        return drivers
 
 
 f1_service = F1Service()
