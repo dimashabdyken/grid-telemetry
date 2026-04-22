@@ -9,6 +9,12 @@ declare function useRuntimeConfig(): RuntimeConfig
 // @ts-ignore TS2307 -- Nuxt alias resolution is unavailable when tsc runs with --ignoreConfig.
 import type { F1Driver, F1Session, HealthCheckResponse, TelemetryResponse } from './types'
 
+export interface WarningEvent {
+    code: string
+    severity: string
+    triggered_at: string
+}
+
 export class ApiError extends Error {
     constructor(
         message: string,
@@ -42,14 +48,20 @@ async function apiFetch<T>(
 ): Promise<T> {
     const config = useRuntimeConfig()
     const BASE_URL = config.public.apiBaseUrl || 'http://localhost:8000'
+    const method = (options?.method || 'GET').toUpperCase()
 
     const headers = new Headers(options?.headers)
-    if (!headers.has('Content-Type')) {
+    const hasBody = options?.body !== undefined && options?.body !== null
+    if (hasBody && !headers.has('Content-Type')) {
         headers.set('Content-Type', 'application/json')
+    }
+    if (!headers.has('Accept')) {
+        headers.set('Accept', 'application/json')
     }
 
     const response = await fetch(`${BASE_URL}${endpoint}`, {
         ...options,
+        method,
         headers
     })
 
@@ -109,7 +121,15 @@ export async function getDrivers(
         session_key: sessionKey
     })
 
-    return apiFetch<F1Driver[]>(endpoint)
+    const payload = await apiFetch<
+        F1Driver[] | { drivers?: F1Driver[] }
+    >(endpoint)
+
+    if (Array.isArray(payload)) {
+        return payload
+    }
+
+    return Array.isArray(payload.drivers) ? payload.drivers : []
 }
 
 /**
@@ -117,4 +137,19 @@ export async function getDrivers(
  */
 export async function getHealthCheck(): Promise<HealthCheckResponse> {
     return apiFetch<HealthCheckResponse>('/health')
+}
+
+/**
+ * Calls GET /api/v1/warnings/history and returns warning events.
+ */
+export async function getWarningsHistory(
+    sessionKey: string | number = 9161,
+    limit: number = 10
+): Promise<WarningEvent[]> {
+    const endpoint = buildUrl('/api/v1/warnings/history', {
+        session_key: sessionKey,
+        limit
+    })
+
+    return apiFetch<WarningEvent[]>(endpoint)
 }

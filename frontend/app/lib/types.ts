@@ -19,12 +19,14 @@ export interface F1Session {
  */
 export interface F1Driver {
     driver_number: number
-    full_name: string
-    name_acronym: string
+    full_name?: string
+    name?: string
+    name_acronym?: string
+    abbreviation?: string
     team_name: string
-    team_colour: string
-    country_code: string
-    headshot_url: string | null
+    team_colour?: string
+    country_code?: string
+    headshot_url?: string | null
 }
 
 /**
