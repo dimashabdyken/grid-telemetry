@@ -140,16 +140,14 @@ def _default_session_key() -> str:
 
 async def fetch_session(session_key: str | int = "latest") -> dict[str, Any]:
     session = await asyncio.to_thread(f1_service.get_session)
+    event_name = getattr(getattr(session, "event", None), "EventName", None)
     return {
         "session_key": (
             _default_session_key() if session_key == "latest" else session_key
         ),
-        "session_name": getattr(session, "name", "Singapore Race"),
-        "year": settings.FASTF1_DEFAULT_YEAR,
-        "date_start": str(getattr(session, "date", "")),
-        "event_name": getattr(
-            getattr(session, "event", None), "EventName", "Singapore"
-        ),
+        "session_name": event_name or "Singapore Grand Prix",
+        "session_type": "Race",
+        "year": 2023,
     }
 
 
@@ -283,7 +281,7 @@ async def health() -> dict[str, Any]:
 
 @app.get("/api/v1/sessions/{session_key}")
 async def get_session(session_key: str) -> dict[str, Any]:
-    cache_key = f"session:{session_key}"
+    cache_key = f"session_v2:{session_key}"
     cached = await cache_get(cache_key)
     if cached:
         return cached
