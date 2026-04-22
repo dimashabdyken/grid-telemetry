@@ -30,8 +30,8 @@ defineProps<{
         {{ driver?.name_acronym || driver?.abbreviation || '---' }}
       </div>
 
-      <div class="min-w-0">
-        <p class="text-2xl font-black text-white uppercase tracking-tight truncate">
+      <div class="min-w-0 flex flex-col justify-center gap-1">
+        <p class="text-xl md:text-2xl font-black text-white uppercase tracking-tighter leading-none break-words whitespace-normal">
           {{ driver?.full_name || driver?.name || 'Loading...' }}
         </p>
         <p class="text-sm font-bold text-gray-400">
