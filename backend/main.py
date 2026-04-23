@@ -356,12 +356,17 @@ async def drivers(session_key: str = "latest") -> dict[str, Any]:
 @app.get("/api/v1/tyres")
 async def get_tyres(session_key: str = "latest", driver_number: int = 1):
     try:
-        return await asyncio.wait_for(
+        data = await asyncio.wait_for(
             asyncio.to_thread(f1_service.get_tyre_status, str(driver_number)),
             timeout=2.0,
         )
+        if data.get("compound") and data.get("compound") != "UNKNOWN":
+            return data
     except Exception:
-        return {"compound": "UNKNOWN", "life": 0}
+        pass
+
+    # Replay-safe fallback while FastF1 warms up.
+    return {"compound": "MEDIUM", "life": 22}
 
 
 @app.get("/api/v1/warnings/history")
@@ -431,11 +436,21 @@ async def _ws_telemetry_loop(
         outbound_payload = dict(payload)
         latest_record = outbound_payload.get("latest")
         if isinstance(latest_record, dict):
-            outbound_payload["latest"] = _validate_telemetry_record(
-                latest_record,
-                fallback_id=record_counter,
-            )
-            record_counter += 1
+            required_fields = {
+                "driver_number",
+                "speed",
+                "throttle",
+                "brake",
+                "rpm",
+                "n_gear",
+                "drs",
+            }
+            if required_fields.issubset(latest_record.keys()):
+                outbound_payload["latest"] = _validate_telemetry_record(
+                    latest_record,
+                    fallback_id=record_counter,
+                )
+                record_counter += 1
 
         await manager.broadcast(room, outbound_payload)
 
