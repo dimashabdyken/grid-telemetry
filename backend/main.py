@@ -201,6 +201,8 @@ async def fetch_car_data(
                 "gear": gear,
                 "n_gear": gear,
                 "drs": _to_int(row.get("DRS")),
+                "x": _to_float(row.get("X")),
+                "y": _to_float(row.get("Y")),
                 "_id": index,
             }
         )
@@ -333,6 +335,17 @@ async def telemetry(
 
     await cache_set(cache_key, response)
     return response
+
+
+@app.get("/api/v1/circuit/{session_key}")
+async def get_circuit_path(session_key: str) -> dict[str, Any]:
+    resolved_session_key = await _resolve_session_key(session_key)
+    path = await asyncio.to_thread(f1_service.get_circuit_path)
+    return {
+        "session_key": resolved_session_key,
+        "path": path,
+        "count": len(path),
+    }
 
 
 @app.get("/api/v1/drivers")

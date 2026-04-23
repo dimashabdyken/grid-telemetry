@@ -41,6 +41,8 @@ export interface CarDataRecord {
     rpm: number
     n_gear: number
     drs: number
+    x?: number
+    y?: number
     _id?: number
 }
 

@@ -170,3 +170,13 @@ export async function getTyreStatus(
         })
     )
 }
+
+export async function getCircuitPath(
+    sessionKey: string | number
+): Promise<{ x: number; y: number }[]> {
+    const payload = await apiFetch<{
+        path?: { x: number; y: number }[]
+    }>(`/api/v1/circuit/${sessionKey}`)
+
+    return Array.isArray(payload.path) ? payload.path : []
+}

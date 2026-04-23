@@ -101,12 +101,44 @@ class F1Service:
     def get_car_data(self, driver_number: str) -> Any:
         session = self._load_session_once()
         requested_driver = str(driver_number or "1")
+        try:
+            laps = session.laps.pick_driver(requested_driver)
+            if not laps.empty:
+                return laps.get_telemetry()
+        except Exception:
+            pass
 
-        car_data = session.car_data.get(requested_driver)
-        if car_data is not None and not car_data.empty:
-            return car_data
+        return session.car_data.get(requested_driver)
 
-        return session.car_data.get("1")
+    def get_circuit_path(self) -> list[dict]:
+        try:
+            session = self._load_session_once()
+            # Load circuit info.
+            circuit_info = session.get_circuit_info()
+            if circuit_info is None or not hasattr(circuit_info, "pos"):
+                return []
+
+            # pos is usually a numpy array or DataFrame of X, Y coordinates.
+            import numpy as np
+
+            x = (
+                circuit_info.pos[:, 0]
+                if isinstance(circuit_info.pos, np.ndarray)
+                else circuit_info.pos["X"].values
+            )
+            y = (
+                circuit_info.pos[:, 1]
+                if isinstance(circuit_info.pos, np.ndarray)
+                else circuit_info.pos["Y"].values
+            )
+
+            return [
+                {"x": float(x_val), "y": float(y_val)}
+                for x_val, y_val in zip(x, y)
+            ]
+        except Exception as exc:  # noqa: BLE001
+            logging.warning("Failed to load circuit path: %s", exc)
+            return []
 
     def get_tyre_status(self, driver_number: str) -> dict[str, str | int]:
         self.start_background_load()

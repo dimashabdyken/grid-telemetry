@@ -39,6 +39,8 @@ def _row_to_record(row: Any, session_key: str, driver_number: int) -> dict[str, 
         "gear": gear,
         "n_gear": gear,
         "drs": _to_int(row.get("DRS")),
+        "x": _to_float(row.get("X", 0.0)),
+        "y": _to_float(row.get("Y", 0.0)),
         "_id": date_value,
     }
 
