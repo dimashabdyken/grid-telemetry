@@ -53,37 +53,40 @@ const carColor = computed(() => {
       preserveAspectRatio="xMidYMid meet"
       class="w-full h-full transform -scale-y-100 flex-1 mt-2"
     >
-      <!-- 1. Base Track (Thick Dark Gray Asphalt) -->
+      <!-- 1. Outer Track Border (Thick Dark/Black Outline) -->
       <polyline
         :points="circuitSvgPoints"
         fill="none"
-        stroke="#333344"
-        stroke-width="800"
+        stroke="#0a0a0f"
+        stroke-width="1200"
         stroke-linejoin="round"
         stroke-linecap="round"
       />
 
-      <!-- 2. Center Racing Line (Thin Dashed Red) -->
+      <!-- 2. Inner Racing Line (Solid Light Gray/White) -->
       <polyline
         :points="circuitSvgPoints"
         fill="none"
-        stroke="#e10600"
-        stroke-width="150"
+        stroke="#e2e8f0"
+        stroke-width="400"
         stroke-linejoin="round"
         stroke-linecap="round"
-        stroke-dasharray="3000 3000"
       />
 
-      <circle
+      <!-- 3. Car Dot (Properly scaled to fit inside the track) -->
+      <g
         v-if="props.telemetry?.x !== undefined && props.telemetry?.y !== undefined"
-        :cx="props.telemetry.x"
-        :cy="props.telemetry.y"
-        r="1200"
-        :fill="carColor"
-        stroke="#ffffff"
-        stroke-width="300"
         class="transition-all duration-200"
-      />
+      >
+        <circle
+          :cx="props.telemetry.x"
+          :cy="props.telemetry.y"
+          r="350"
+          :fill="carColor"
+          stroke="#ffffff"
+          stroke-width="100"
+        />
+      </g>
     </svg>
   </div>
 </template>
