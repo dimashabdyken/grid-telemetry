@@ -40,7 +40,7 @@ const circuitSvgPoints = computed(() => {
 })
 
 const carColor = computed(() => {
-  return props.teamColor ? `#${props.teamColor}` : '#ffffff'
+  return props.teamColor ? `#${props.teamColor.replace('#', '')}` : '#ffffff'
 })
 </script>
 
@@ -71,17 +71,17 @@ const carColor = computed(() => {
         stroke-width="150"
         stroke-linejoin="round"
         stroke-linecap="round"
-        stroke-dasharray="1000 1000"
+        stroke-dasharray="3000 3000"
       />
 
       <circle
-        v-if="props.telemetry?.x && props.telemetry?.y"
+        v-if="props.telemetry?.x !== undefined && props.telemetry?.y !== undefined"
         :cx="props.telemetry.x"
         :cy="props.telemetry.y"
-        r="400"
+        r="1200"
         :fill="carColor"
         stroke="#ffffff"
-        stroke-width="100"
+        stroke-width="300"
         class="transition-all duration-200"
       />
     </svg>
