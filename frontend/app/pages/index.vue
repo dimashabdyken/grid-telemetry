@@ -117,8 +117,8 @@ onUnmounted(() => {
         <TelemetryGauges :data="latestTelemetry" />
       </section>
 
-      <div class="col-span-full">
-        <TrackMap :telemetry="latestTelemetry" />
+      <div class="md:col-span-2 lg:col-span-2">
+        <TrackMap :telemetry="latestTelemetry" :team-color="driverInfo?.team_colour" />
       </div>
 
       <section class="col-span-full bg-[#1e1e28] rounded-xl p-6 border border-white/5 shadow-lg">
