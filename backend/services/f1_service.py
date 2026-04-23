@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from threading import Lock
+from threading import Lock, Thread
 from typing import Any, ClassVar
 
 import fastf1
@@ -34,6 +34,8 @@ class F1Service:
         self.session_name = settings.FASTF1_DEFAULT_SESSION
         self._session: Any | None = None
         self._session_lock = Lock()
+        self._load_started = False
+        self._load_start_lock = Lock()
 
         service_dir = Path(__file__).resolve().parent
         project_root = Path(__file__).resolve().parents[2]
@@ -70,6 +72,28 @@ class F1Service:
     def get_session(self) -> Any:
         return self._load_session_once()
 
+    def start_background_load(self) -> None:
+        if self._session is not None or self._load_started:
+            return
+
+        with self._load_start_lock:
+            if self._session is not None or self._load_started:
+                return
+
+            self._load_started = True
+
+            def _load() -> None:
+                try:
+                    self._load_session_once()
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("FastF1 background load failed: %s", exc)
+                finally:
+                    with self._load_start_lock:
+                        if self._session is None:
+                            self._load_started = False
+
+            Thread(target=_load, daemon=True).start()
+
     @property
     def session(self) -> Any | None:
         return self._session
@@ -85,6 +109,7 @@ class F1Service:
         return session.car_data.get("1")
 
     def get_tyre_status(self, driver_number: str) -> dict[str, str | int]:
+        self.start_background_load()
         if not self._session or self._session.laps.empty:
             return {"compound": "UNKNOWN", "life": 0}
 
@@ -112,6 +137,7 @@ class F1Service:
         }
 
     def get_drivers(self) -> list[dict[str, Any]]:
+        self.start_background_load()
         if self.session is None or not hasattr(self.session, "drivers"):
             return []
 
