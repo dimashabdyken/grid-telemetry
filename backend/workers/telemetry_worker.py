@@ -49,14 +49,14 @@ def _row_to_record(row: Any, session_key: str, driver_number: int) -> dict[str, 
 def _to_float(value: Any, default: float = 0.0) -> float:
     try:
         return float(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
 
 
 def _to_int(value: Any, default: int = 0) -> int:
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
 
 
@@ -190,7 +190,7 @@ def _select_replay_window(records: list[dict[str, Any]]) -> list[dict[str, Any]]
 async def poll_telemetry(
     session_key: str | int = 9161,
     driver_number: int | None = 1,
-    interval_seconds: float = 0.15,
+    interval_seconds: float = 0.05,
 ):
     resolved_driver = driver_number if driver_number is not None else 1
     resolved_session_key = str(session_key)
@@ -301,8 +301,7 @@ async def poll_telemetry(
                     "latest": record_dict,
                 }
 
-                # Keep the event loop responsive for websocket heartbeat tasks.
-                await asyncio.sleep(0.01)
+                # Keep the event loop responsive and simulate real F1 telemetry frequency (~20Hz)
                 await asyncio.sleep(interval_seconds)
             except Exception as exc:  # noqa: BLE001
                 logging.error(f"Error in replay loop: {exc}")
