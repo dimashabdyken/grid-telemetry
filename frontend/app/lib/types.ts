@@ -44,6 +44,7 @@ export interface CarDataRecord {
     x?: number
     y?: number
     _id?: number
+    timestamp?: string
 }
 
 /**
@@ -101,6 +102,7 @@ export interface WSTelemetryMessage {
     health: HealthScore
     new_records: number
     latest: CarDataRecord
+    timestamp?: string
 }
 
 /**

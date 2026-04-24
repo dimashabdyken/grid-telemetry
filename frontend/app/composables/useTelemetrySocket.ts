@@ -185,7 +185,11 @@ export const useTelemetrySocket = () => {
                 )
                 break
             case 'telemetry':
-                latestTelemetry.value = parsedMessage.latest
+                console.log(`[WS] Packet: ${parsedMessage.latest._id} | Time: ${parsedMessage.latest.date}`)
+                latestTelemetry.value = {
+                    ...parsedMessage.latest,
+                    ...(parsedMessage.timestamp ? { timestamp: parsedMessage.timestamp } : {}),
+                }
                 currentHealth.value = parsedMessage.health
                 break
             case 'ping':

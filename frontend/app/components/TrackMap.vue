@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { getCircuitPath } from '~/lib/api'
 import type { CarDataRecord } from '~/lib/types'
 
@@ -10,6 +10,7 @@ const props = defineProps<{
 }>()
 
 const circuitPath = ref<{ x: number; y: number }[]>([])
+const dotPosition = ref<{ x: number; y: number } | null>(null)
 
 // Generate a synthetic circular track for fallback/demo mode
 const generateSyntheticTrack = (): { x: number; y: number }[] => {
@@ -82,10 +83,26 @@ const carColor = computed(() => {
   return props.teamColor ? `#${props.teamColor.replace('#', '')}` : '#ffffff'
 })
 
-const carPoint = computed(() => {
-  if (props.telemetry?.x === undefined || props.telemetry?.y === undefined) return null
-  return { x: props.telemetry.x, y: props.telemetry.y }
-})
+watch(
+  () => props.telemetry,
+  (newVal) => {
+    if (!newVal) {
+      dotPosition.value = null
+      return
+    }
+
+    // Keep updates synchronized to telemetry packets (timestamp-driven stream).
+    if (newVal.x !== undefined && newVal.y !== undefined) {
+      dotPosition.value = {
+        x: newVal.x,
+        y: newVal.y,
+      }
+    }
+  },
+  { immediate: true },
+)
+
+const carPoint = computed(() => dotPosition.value)
 </script>
 
 <template>

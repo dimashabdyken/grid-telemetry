@@ -198,7 +198,10 @@ async def poll_telemetry(
     async def _load_car_data() -> Any | None:
         try:
             return await asyncio.wait_for(
-                asyncio.to_thread(f1_service.get_car_data, str(resolved_driver)),
+                asyncio.to_thread(
+                    f1_service.get_car_data_with_position,
+                    str(resolved_driver),
+                ),
                 timeout=TELEMETRY_FETCH_TIMEOUT_SECONDS,
             )
         except Exception:
@@ -244,6 +247,7 @@ async def poll_telemetry(
                 "health": compute_vehicle_health(fallback_history),
                 "new_records": 1,
                 "latest": latest,
+                "timestamp": latest.get("date"),
             }
 
             if tick % FALLBACK_RETRY_TICKS == 0:
@@ -302,6 +306,7 @@ async def poll_telemetry(
                 "health": health,
                 "new_records": 1,
                 "latest": record_dict,
+                "timestamp": record_dict.get("date"),
             }
         except Exception as exc:  # noqa: BLE001
             logging.error(f"Error in replay loop: {exc}")
