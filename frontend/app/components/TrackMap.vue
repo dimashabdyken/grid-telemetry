@@ -14,11 +14,31 @@ const animatedIndex = ref(0)
 let animationFrameId: number | null = null
 let previousFrameTime = 0
 
+// Generate a synthetic circular track for fallback/demo mode
+const generateSyntheticTrack = (): { x: number; y: number }[] => {
+  const points: { x: number; y: number }[] = []
+  const numPoints = 500
+  const radiusX = 800
+  const radiusY = 600
+  const centerX = 0
+  const centerY = 0
+
+  for (let i = 0; i < numPoints; i++) {
+    const angle = (i / numPoints) * Math.PI * 2
+    points.push({
+      x: centerX + radiusX * Math.cos(angle),
+      y: centerY + radiusY * Math.sin(angle)
+    })
+  }
+  return points
+}
+
 onMounted(async () => {
   try {
-    circuitPath.value = await getCircuitPath(9161)
+    const path = await getCircuitPath(9161)
+    circuitPath.value = path && path.length > 0 ? path : generateSyntheticTrack()
   } catch {
-    circuitPath.value =[]
+    circuitPath.value = generateSyntheticTrack()
   }
 })
 
@@ -121,29 +141,45 @@ const animateCarToTarget = (timestamp: number) => {
   const frameFactor = deltaMs / 16.67
   previousFrameTime = timestamp
 
-  if (!circuitPath.value.length) {
+  const size = circuitPath.value.length
+  if (size === 0) {
     animationFrameId = requestAnimationFrame(animateCarToTarget)
     return
   }
 
-  const size = circuitPath.value.length
-  const target = targetTelemetryIndex.value
+  let target = targetTelemetryIndex.value
+  const maxJump = Math.max(6, Math.floor(size * 0.02))
 
-    if (target >= 0) {
-      const delta = shortestCircularDelta(animatedIndex.value, target, size)
-      if (Math.abs(delta) < 0.01) {
-        animatedIndex.value = target
+  if (target >= 0) {
+    // Reject impossible jumps from noisy/misaligned coordinate snaps.
+    const candidateDelta = shortestCircularDelta(animatedIndex.value, target, size)
+    if (Math.abs(candidateDelta) > maxJump) {
+      const fallbackTarget = fallbackTelemetryIndex.value
+      const fallbackDelta = fallbackTarget >= 0
+        ? shortestCircularDelta(animatedIndex.value, fallbackTarget, size)
+        : Number.POSITIVE_INFINITY
+
+      if (Number.isFinite(fallbackDelta) && Math.abs(fallbackDelta) <= maxJump) {
+        target = fallbackTarget
       } else {
-        animatedIndex.value = (animatedIndex.value + delta * 0.22 * frameFactor + size) % size
+        target = (animatedIndex.value + Math.sign(candidateDelta) * maxJump + size) % size
       }
-
-    const telemetrySpeed = Number(props.telemetry?.speed ?? 0)
-    if (Number.isFinite(telemetrySpeed) && telemetrySpeed > 0 && Math.abs(delta) < 0.4) {
-      const cruiseStep = Math.max(0.08, (telemetrySpeed / 340) * 0.6) * frameFactor
-      animatedIndex.value = (animatedIndex.value + cruiseStep + size) % size
     }
+
+    const delta = shortestCircularDelta(animatedIndex.value, target, size)
+    const telemetrySpeed = Number(props.telemetry?.speed ?? 0)
+    const normalizedSpeed = Number.isFinite(telemetrySpeed)
+      ? Math.max(0, Math.min(telemetrySpeed, 340)) / 340
+      : 0
+
+    // Cap movement per frame so the marker follows telemetry instead of drifting ahead.
+    const maxStep = (0.7 + normalizedSpeed * 1.8) * frameFactor
+    const step = Math.max(-maxStep, Math.min(maxStep, delta))
+    animatedIndex.value = (animatedIndex.value + step + size) % size
   } else {
-    animatedIndex.value = (animatedIndex.value + 0.16 * frameFactor + size) % size
+    // No target available: keep tiny movement so UI does not appear frozen.
+    const cruiseStep = 0.03 * frameFactor
+    animatedIndex.value = (animatedIndex.value + cruiseStep + size) % size
   }
 
   animationFrameId = requestAnimationFrame(animateCarToTarget)
@@ -157,11 +193,13 @@ watch(
       return
     }
 
-    if (!previousLength && target >= 0) {
-      animatedIndex.value = target
+    // When path first loads (previousLength was 0 or falsy), jump to target or start position
+    if (!previousLength && length > 0) {
+      animatedIndex.value = target >= 0 ? target : 0
       return
     }
 
+    // If we have a valid target and animatedIndex is at an invalid state, initialize it
     if (target >= 0 && !Number.isFinite(animatedIndex.value)) {
       animatedIndex.value = target
     }
@@ -234,24 +272,24 @@ onBeforeUnmount(() => {
         stroke-linecap="round"
       />
 
-      <!-- Driver Dot (Fitted inside the track) -->
-      <circle
-        v-if="carPoint"
-        :cx="carPoint.x"
-        :cy="carPoint.y"
-        r="200"
-        :fill="carColor"
-        stroke="#ffffff"
-        stroke-width="30"
-        class="drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]"
-      />
-
       <!-- Driver Label -->
       <g v-if="carPoint && driverAcronym" :transform="`translate(${carPoint.x + 200}, ${carPoint.y}) scale(1, -1)`">
         <rect x="0" y="-80" width="380" height="160" rx="80" fill="#ffffff" />
         <rect x="0" y="-80" width="60" height="160" rx="30" :fill="carColor" />
         <text x="90" y="40" fill="#000000" font-size="120" font-weight="900" font-family="sans-serif">{{ driverAcronym }}</text>
       </g>
+
+      <!-- Car Dot -->
+      <circle
+        v-if="carPoint"
+        :cx="carPoint.x"
+        :cy="carPoint.y"
+        r="120"
+        :fill="carColor"
+        stroke="#ffffff"
+        stroke-width="40"
+        class="transition-all duration-[100ms] ease-linear drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]"
+      />
     </svg>
   </div>
 </template>
