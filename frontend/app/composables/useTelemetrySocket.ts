@@ -14,9 +14,12 @@ const RECONNECT_DELAY_MS = 2000
 const MAX_RECONNECT_ATTEMPTS = 5
 const HEARTBEAT_TIMEOUT_MS = 30_000
 const HEARTBEAT_CHECK_INTERVAL_MS = 5_000
+const SMOOTHING_INTERVAL_MS = 120
+const METRIC_SMOOTHING_ALPHA = 0.35
 
 const connectionState = ref<ConnectionState>('closed')
 const latestTelemetry = ref<WSTelemetryMessage['latest'] | null>(null)
+const smoothedTelemetry = ref<WSTelemetryMessage['latest'] | null>(null)
 const currentHealth = ref<WSTelemetryMessage['health'] | null>(null)
 const error = ref<string | null>(null)
 const lastPing = ref<Date | null>(null)
@@ -27,6 +30,7 @@ const reconnectAttempts = ref(0)
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let demoTimer: ReturnType<typeof setInterval> | null = null
 let heartbeatMonitorTimer: ReturnType<typeof setInterval> | null = null
+let smoothingTimer: ReturnType<typeof setInterval> | null = null
 let intentionalClose = false
 let lastSessionKey: string | number | null = null
 let lastDriverNumber: number | null = null
@@ -52,6 +56,44 @@ const stopHeartbeatMonitor = () => {
     }
 }
 
+const stopSmoothing = () => {
+    if (smoothingTimer) {
+        clearInterval(smoothingTimer)
+        smoothingTimer = null
+    }
+}
+
+const lerp = (current: number, target: number, alpha: number): number => {
+    return current + (target - current) * alpha
+}
+
+const startSmoothing = () => {
+    stopSmoothing()
+    smoothingTimer = setInterval(() => {
+        const incoming = latestTelemetry.value
+        if (!incoming) {
+            return
+        }
+
+        const current = smoothedTelemetry.value
+        if (!current) {
+            smoothedTelemetry.value = { ...incoming }
+            return
+        }
+
+        smoothedTelemetry.value = {
+            ...incoming,
+            speed: lerp(current.speed ?? 0, incoming.speed ?? 0, METRIC_SMOOTHING_ALPHA),
+            throttle: lerp(current.throttle ?? 0, incoming.throttle ?? 0, METRIC_SMOOTHING_ALPHA),
+            brake: lerp(current.brake ?? 0, incoming.brake ?? 0, METRIC_SMOOTHING_ALPHA),
+            rpm: lerp(current.rpm ?? 0, incoming.rpm ?? 0, METRIC_SMOOTHING_ALPHA),
+            // Keep drivetrain state responsive while smoothing analog channels.
+            n_gear: incoming.n_gear,
+            drs: incoming.drs,
+        }
+    }, SMOOTHING_INTERVAL_MS)
+}
+
 const randomInt = (min: number, max: number): number =>
     Math.floor(Math.random() * (max - min + 1)) + min
 
@@ -73,7 +115,7 @@ export const enableDemoMode = () => {
         const throttle = randomInt(0, 100)
         const brake = throttle > 50 ? 0 : randomInt(0, 100)
 
-        latestTelemetry.value = {
+        const sample = {
             date: new Date().toISOString(),
             driver_number: lastDriverNumber ?? 1,
             speed: randomInt(100, 320),
@@ -83,6 +125,8 @@ export const enableDemoMode = () => {
             n_gear: randomInt(3, 8),
             drs: randomInt(0, 1)
         }
+        latestTelemetry.value = sample
+        smoothedTelemetry.value = sample
     }, 150)
 }
 
@@ -163,6 +207,7 @@ export const useTelemetrySocket = () => {
         const WS_BASE = config.public.wsBaseUrl || 'ws://localhost:8000'
 
         stopDemoMode()
+        startSmoothing()
 
         lastSessionKey = sessionKey
         lastDriverNumber = driverNumber
@@ -209,6 +254,7 @@ export const useTelemetrySocket = () => {
         clearReconnectTimer()
         stopDemoMode()
         stopHeartbeatMonitor()
+        stopSmoothing()
         reconnectAttempts.value = 0
 
         if (socket.value) {
@@ -218,6 +264,7 @@ export const useTelemetrySocket = () => {
 
         connectionState.value = 'closed'
         latestTelemetry.value = null
+        smoothedTelemetry.value = null
         currentHealth.value = null
         error.value = null
         lastPing.value = null
@@ -230,6 +277,7 @@ export const useTelemetrySocket = () => {
     return {
         connectionState,
         latestTelemetry,
+        smoothedTelemetry,
         currentHealth,
         error,
         lastPing,

@@ -10,7 +10,7 @@ import TrackMap from '~/components/TrackMap.vue'
 import TyreStatusCard from '~/components/TyreStatusCard.vue'
 import WarningHistoryPanel from '~/components/WarningHistoryPanel.vue'
 import { useHealthScore } from '~/composables/useHealthScore'
-import { enableDemoMode, useTelemetrySocket } from '~/composables/useTelemetrySocket'
+import { useTelemetrySocket } from '~/composables/useTelemetrySocket'
 
 const sessionInfo = ref<Awaited<ReturnType<typeof getSession>> | null>(null)
 const driverNumber = ref(1)
@@ -22,6 +22,7 @@ const {
   disconnect,
   connectionState,
   latestTelemetry,
+  smoothedTelemetry,
   currentHealth,
   error
 } = useTelemetrySocket()
@@ -33,18 +34,8 @@ onMounted(async () => {
   try {
     sessionInfo.value = await getSession(9161)
     tyreInfo.value = await getTyreStatus(9161, 1)
-  } catch (mountError) {
-    console.warn('Backend offline, starting DEMO MODE for UI development')
-    sessionInfo.value = { session_name: 'Singapore GP (DEMO)', year: 2023 } as any
-    tyreInfo.value = { compound: 'SOFT', life: 12 } as any
-    driverInfo.value = {
-      full_name: 'Max Verstappen',
-      team_name: 'Red Bull Racing',
-      driver_number: 1,
-      team_colour: '3671C6',
-      headshot_url: 'https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/M/MAXVER01_Max_Verstappen/maxver01.png.transform/2col/image.png'
-    } as any
-    enableDemoMode()
+  } catch {
+    error.value = 'Backend connection failed. Please ensure the backend is running.'
   }
 
   try {
@@ -114,18 +105,29 @@ onUnmounted(() => {
         <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold">
           Telemetry Stream
         </h2>
-        <TelemetryGauges :data="latestTelemetry" />
+        <div v-if="!latestTelemetry" class="flex flex-col items-center justify-center h-48 text-gray-500">
+          <p class="text-lg font-bold uppercase tracking-widest">Waiting for data...</p>
+        </div>
+        <div v-else class="grid grid-cols-1">
+          <TelemetryGauges :data="smoothedTelemetry" />
+        </div>
       </section>
 
       <div class="md:col-span-2 lg:col-span-2">
-        <TrackMap :telemetry="latestTelemetry" :team-color="driverInfo?.team_colour" />
+        <div v-if="!latestTelemetry" class="flex flex-col items-center justify-center h-[280px] md:h-[320px] text-gray-500 bg-[#1e1e28] rounded-xl p-4 border border-white/5 shadow-lg">
+          <p class="text-lg font-bold uppercase tracking-widest">Waiting for data...</p>
+        </div>
+        <TrackMap v-else :telemetry="latestTelemetry" :team-color="driverInfo?.team_colour" />
       </div>
 
       <section class="col-span-full bg-[#1e1e28] rounded-xl p-6 border border-white/5 shadow-lg">
         <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold mb-4">
           Speed Trend
         </h2>
-        <TelemetryChart :data="latestTelemetry" />
+        <div v-if="!latestTelemetry" class="flex flex-col items-center justify-center h-48 text-gray-500">
+          <p class="text-lg font-bold uppercase tracking-widest">Waiting for data...</p>
+        </div>
+        <TelemetryChart v-else :data="smoothedTelemetry" />
       </section>
 
       <div class="col-span-full">
