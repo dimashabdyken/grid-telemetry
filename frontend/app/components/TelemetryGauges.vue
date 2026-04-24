@@ -25,7 +25,7 @@ const smoothRpm = useTransition(rpm, {
 const clampedThrottle = computed(() => Math.min(Math.max(throttle.value, 0), 100))
 const clampedBrake = computed(() => Math.min(Math.max(brake.value, 0), 100))
 
-const isLedActive = (i: number) => rpm.value >= i * 1000
+const isLedActive = (i: number) => smoothRpm.value >= i * 1000
 
 const ledColorClass = (i: number) => {
   if (i <= 5) {
@@ -104,7 +104,7 @@ const ledColorClass = (i: number) => {
       <div class="relative mt-2 h-2 overflow-hidden rounded bg-white/10">
         <div
           class="h-full bg-[#005aff] transition-all duration-100"
-          :style="{ width: Math.min((rpm / 15000) * 100, 100) + '%' }"
+          :style="{ width: Math.min((smoothRpm / 15000) * 100, 100) + '%' }"
         />
       </div>
       <div class="text-right text-xs text-slate-400 tabular-nums mt-1 font-bold">
