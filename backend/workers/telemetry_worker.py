@@ -190,7 +190,7 @@ def _select_replay_window(records: list[dict[str, Any]]) -> list[dict[str, Any]]
 async def poll_telemetry(
     session_key: str | int = 9161,
     driver_number: int | None = 1,
-    interval_seconds: float = 0.05,
+    interval_seconds: float = 0.1,
 ):
     resolved_driver = driver_number if driver_number is not None else 1
     resolved_session_key = str(session_key)
@@ -280,34 +280,35 @@ async def poll_telemetry(
         except Exception as exc:  # noqa: BLE001
             logging.error(f"DB save failed: {exc}")
 
+    record_count = len(replay_records)
+    idx = 0
     while True:
-        for i, record in enumerate(replay_records):
-            try:
-                recent_records = replay_records[max(0, i - 9) : i + 1]
-                record_dict, health = await asyncio.to_thread(
-                    _process_record_sync,
-                    record,
-                    recent_records,
-                )
+        try:
+            i = idx % record_count
+            record = replay_records[i]
+            recent_records = replay_records[max(0, i - 9) : i + 1]
+            record_dict, health = await asyncio.to_thread(
+                _process_record_sync,
+                record,
+                recent_records,
+            )
 
-                asyncio.create_task(_persist([record_dict], health))
+            asyncio.create_task(_persist([record_dict], health))
 
-                yield {
-                    "type": "telemetry",
-                    "session_key": resolved_session_key,
-                    "driver_number": resolved_driver,
-                    "health": health,
-                    "new_records": 1,
-                    "latest": record_dict,
-                }
+            yield {
+                "type": "telemetry",
+                "session_key": resolved_session_key,
+                "driver_number": resolved_driver,
+                "health": health,
+                "new_records": 1,
+                "latest": record_dict,
+            }
+        except Exception as exc:  # noqa: BLE001
+            logging.error(f"Error in replay loop: {exc}")
 
-                # Keep the event loop responsive and simulate real F1 telemetry frequency (~20Hz)
-                await asyncio.sleep(interval_seconds)
-            except Exception as exc:  # noqa: BLE001
-                logging.error(f"Error in replay loop: {exc}")
-                await asyncio.sleep(1)
-
-        logging.info("Restarting telemetry replay loop...")
+        # Keep the event loop responsive and simulate stable telemetry frequency (10Hz).
+        await asyncio.sleep(interval_seconds)
+        idx += 1
 
 
 async def _demo() -> None:
