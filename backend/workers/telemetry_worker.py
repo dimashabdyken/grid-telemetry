@@ -17,6 +17,7 @@ DRS_FAULT_CODES = {14}
 REPLAY_WINDOW_SIZE = 600
 REPLAY_WINDOW_STRIDE_DIVISOR = 6
 TELEMETRY_FETCH_TIMEOUT_SECONDS = 2.0
+FALLBACK_RETRY_TICKS = 20
 
 
 def _row_to_record(row: Any, session_key: str, driver_number: int) -> dict[str, Any]:
@@ -48,14 +49,14 @@ def _row_to_record(row: Any, session_key: str, driver_number: int) -> dict[str, 
 def _to_float(value: Any, default: float = 0.0) -> float:
     try:
         return float(value)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return default
 
 
 def _to_int(value: Any, default: int = 0) -> int:
     try:
         return int(value)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return default
 
 
@@ -194,15 +195,18 @@ async def poll_telemetry(
     resolved_driver = driver_number if driver_number is not None else 1
     resolved_session_key = str(session_key)
 
-    try:
-        car_data = await asyncio.wait_for(
-            asyncio.to_thread(f1_service.get_car_data, str(resolved_driver)),
-            timeout=TELEMETRY_FETCH_TIMEOUT_SECONDS,
-        )
-    except Exception:
-        car_data = None
+    async def _load_car_data() -> Any | None:
+        try:
+            return await asyncio.wait_for(
+                asyncio.to_thread(f1_service.get_car_data, str(resolved_driver)),
+                timeout=TELEMETRY_FETCH_TIMEOUT_SECONDS,
+            )
+        except Exception:
+            return None
 
-    if car_data is None or car_data.empty:
+    car_data = await _load_car_data()
+
+    if car_data is None or getattr(car_data, "empty", True):
         logging.info(
             "FastF1 car data unavailable; emitting synthetic telemetry fallback"
         )
@@ -241,8 +245,23 @@ async def poll_telemetry(
                 "new_records": 1,
                 "latest": latest,
             }
+
+            if tick % FALLBACK_RETRY_TICKS == 0:
+                live_car_data = await _load_car_data()
+                if live_car_data is not None and not getattr(
+                    live_car_data, "empty", True
+                ):
+                    car_data = live_car_data
+                    logging.info(
+                        "FastF1 car data recovered; switching from synthetic fallback"
+                    )
+                    break
+
             tick += 1
             await asyncio.sleep(interval_seconds)
+
+    if car_data is None or getattr(car_data, "empty", True):
+        return
 
     records = [
         _row_to_record(row, resolved_session_key, resolved_driver)
