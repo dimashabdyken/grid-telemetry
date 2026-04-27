@@ -66,7 +66,7 @@
       >
         <h1 class="text-2xl font-black tracking-tighter uppercase text-white flex items-center gap-3">
           Grid Telemetry
-          <span v-if="sessionInfo" class="text-gray-500 font-normal text-lg">| {{ sessionInfo.session_name }} {{ sessionInfo.year }}</span>
+          <span v-if="sessionInfo" class="text-gray-500 font-normal text-lg">| Singapore Grand Prix</span>
         </h1>
 
         <div class="flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 text-xs font-bold uppercase tracking-wider">
