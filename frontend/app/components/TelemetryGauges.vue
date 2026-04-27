@@ -7,18 +7,10 @@ const props = defineProps<{
   data: CarDataRecord | null
 }>()
 
-const speed = computed(() => props.data?.speed ?? 0)
-const gear = computed(() => props.data?.n_gear ?? 0)
 const throttle = computed(() => props.data?.throttle ?? 0)
 const brake = computed(() => props.data?.brake ?? 0)
 const rpm = computed(() => props.data?.rpm ?? 0)
-// DRS is active if value is >= 8
-const isDrsActive = computed(() => (props.data?.drs ?? 0) >= 8)
 
-const smoothSpeed = useTransition(speed, {
-  duration: 150,
-  transition: TransitionPresets.linear
-})
 const smoothRpm = useTransition(rpm, {
   duration: 150,
   transition: TransitionPresets.linear
@@ -57,44 +49,33 @@ const ledColorClass = (i: number) => {
       />
     </div>
 
-    <div class="grid grid-cols-2 gap-3 mb-2">
-      <div class="bg-[#0a0a0f] rounded-lg border border-white/5 p-3 flex flex-col items-center justify-center shadow-inner">
-        <div class="text-4xl xl:text-5xl font-black italic text-white tracking-tighter tabular-nums leading-none">
-          {{ Math.round(smoothSpeed) }}
-        </div>
-        <div class="text-[10px] text-gray-500 uppercase tracking-[0.2em] mt-1 font-bold">
-          KM/H
-        </div>
+    <div class="grid grid-cols-3 gap-2 mb-4 items-center">
+      <!-- Speed -->
+      <div class="bg-[#0a0a0f] rounded-lg border border-white/5 p-2 flex flex-col items-center">
+        <div class="text-3xl font-black italic text-white tracking-tighter">{{ Math.round(data?.speed ?? 0) }}</div>
+        <div class="text-[8px] text-gray-500 uppercase tracking-widest">KM/H</div>
       </div>
-
-      <div class="bg-[#0a0a0f] rounded-lg border border-white/5 p-3 flex items-center justify-center gap-3 shadow-inner">
-        <div class="flex flex-col items-center justify-center">
-          <div class="text-4xl xl:text-5xl font-black italic text-white tracking-tighter tabular-nums leading-none">
-            {{ gear }}
-          </div>
-          <div class="text-[10px] text-gray-500 uppercase tracking-[0.2em] mt-1 font-bold">
-            GEAR
-          </div>
-        </div>
-        <div
-          class="px-2 py-1 rounded border text-[10px] font-black uppercase tracking-widest transition-all duration-100"
-          :class="isDrsActive
-            ? 'bg-green-500/20 border-green-500 text-green-400 shadow-[0_0_10px_#22c55e]'
-            : 'bg-gray-800 border-gray-700 text-gray-600'"
-        >
-          {{ data ? 'DRS' : 'N/A' }}
-        </div>
-        <div class="text-[8px] text-gray-500">DRS_RAW: {{ data?.drs }}</div>
+      <!-- Gear -->
+      <div class="bg-[#0a0a0f] rounded-lg border border-white/5 p-2 flex flex-col items-center">
+        <div class="text-3xl font-black italic text-white">{{ data?.n_gear ?? 0 }}</div>
+        <div class="text-[8px] text-gray-500 uppercase tracking-widest">GEAR</div>
+      </div>
+      <!-- DRS -->
+      <div
+        class="h-full flex items-center justify-center rounded border text-[8px] font-black uppercase tracking-widest transition-colors duration-200"
+        :class="(data?.drs !== 0 && data?.drs != null) ? 'bg-green-500/20 border-green-500 text-green-400' : 'bg-gray-800 border-gray-700 text-gray-600'"
+      >
+        DRS
       </div>
     </div>
 
-    <div class="relative rounded-xl border border-white/10 bg-black/50 p-4">
+    <div class="relative w-full rounded-xl border border-white/10 bg-black/50 p-4">
       <div class="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:14px_14px] opacity-20" />
 
       <div class="relative mb-2 text-xs font-bold uppercase tracking-widest text-gray-400">
         THROTTLE
       </div>
-      <div class="relative h-4 overflow-hidden rounded bg-white/10 -skew-x-12">
+      <div class="relative h-4 w-full overflow-hidden rounded bg-white/10 -skew-x-12">
         <div
           class="h-full bg-[#00ff00] transition-all duration-100 shadow-[0_0_8px_rgba(0,255,0,0.75)]"
           :style="{ width: clampedThrottle + '%' }"
@@ -104,7 +85,7 @@ const ledColorClass = (i: number) => {
       <div class="relative mt-4 mb-2 text-xs font-bold uppercase tracking-widest text-gray-400">
         BRAKE
       </div>
-      <div class="relative h-4 overflow-hidden rounded bg-white/10 -skew-x-12">
+      <div class="relative h-4 w-full overflow-hidden rounded bg-white/10 -skew-x-12">
         <div
           class="h-full bg-[#e10600] transition-all duration-100 shadow-[0_0_8px_rgba(225,6,0,0.75)]"
           :style="{ width: clampedBrake + '%' }"
@@ -114,7 +95,7 @@ const ledColorClass = (i: number) => {
       <div class="relative mt-4 mb-1 text-xs font-bold uppercase tracking-widest text-gray-400">
         RPM
       </div>
-      <div class="relative mt-2 h-2 overflow-hidden rounded bg-white/10">
+      <div class="relative mt-2 h-2 w-full overflow-hidden rounded bg-white/10">
         <div
           class="h-full bg-[#005aff] transition-all duration-100"
           :style="{ width: Math.min((smoothRpm / 15000) * 100, 100) + '%' }"
