@@ -6,6 +6,7 @@ import math
 from datetime import UTC, datetime
 from typing import Any
 
+from backend.core.config import settings
 from backend.db.base import AsyncSessionLocal
 from backend.db.service import save_telemetry_batch
 from backend.services.f1_service import f1_service
@@ -49,14 +50,14 @@ def _row_to_record(row: Any, session_key: str, driver_number: int) -> dict[str, 
 def _to_float(value: Any, default: float = 0.0) -> float:
     try:
         return float(value)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return default
 
 
 def _to_optional_float(value: Any) -> float | None:
     try:
         parsed = float(value)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return None
 
     return parsed if math.isfinite(parsed) else None
@@ -65,7 +66,7 @@ def _to_optional_float(value: Any) -> float | None:
 def _to_int(value: Any, default: int = 0) -> int:
     try:
         return int(value)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return default
 
 
@@ -197,10 +198,13 @@ def _select_replay_window(records: list[dict[str, Any]]) -> list[dict[str, Any]]
 
 
 async def poll_telemetry(
-    session_key: str | int = 9161,
+    session_key: str | int | None = None,
     driver_number: int | None = 1,
     interval_seconds: float = 0.1,
 ):
+    if session_key is None:
+        session_key = str(settings.FASTF1_DEFAULT_YEAR)
+
     resolved_driver = driver_number if driver_number is not None else 1
     resolved_session_key = str(session_key)
 
@@ -232,6 +236,10 @@ async def poll_telemetry(
             n_gear = max(1, min(8, int(speed // 40)))
             rpm = int(6000 + speed * 22)
             drs = 1 if speed > 240 else 0
+            # Keep marker motion alive before FastF1 position data becomes available.
+            fallback_angle = tick / 40.0
+            fallback_x = 800.0 * math.cos(fallback_angle)
+            fallback_y = 600.0 * math.sin(fallback_angle)
 
             latest = {
                 "date": now_iso,
@@ -242,6 +250,8 @@ async def poll_telemetry(
                 "rpm": max(0, rpm),
                 "n_gear": n_gear,
                 "drs": drs,
+                "x": round(fallback_x, 3),
+                "y": round(fallback_y, 3),
                 "_id": tick,
             }
 
@@ -306,7 +316,8 @@ async def poll_telemetry(
                 recent_records,
             )
 
-            asyncio.create_task(_persist([record_dict], health))
+            if len(asyncio.all_tasks()) < 50:
+                asyncio.create_task(_persist([record_dict], health))
 
             yield {
                 "type": "telemetry",
