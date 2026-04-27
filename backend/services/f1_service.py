@@ -6,6 +6,7 @@ from threading import Lock, Thread
 from typing import Any, ClassVar
 
 import fastf1
+import pandas as pd
 
 from backend.core.config import settings
 
@@ -102,7 +103,10 @@ class F1Service:
         session = self._load_session_once()
         requested_driver = str(driver_number or "1")
         try:
-            laps = session.laps.pick_driver(requested_driver)
+            if hasattr(session.laps, "pick_drivers"):
+                laps = session.laps.pick_drivers([requested_driver])
+            else:
+                laps = session.laps[session.laps["DriverNumber"] == requested_driver]
             if not laps.empty:
                 return laps.get_telemetry()
         except Exception:
@@ -110,32 +114,172 @@ class F1Service:
 
         return session.car_data.get(requested_driver)
 
+    def get_car_data_with_position(self, driver_number: str) -> Any:
+        """Return telemetry merged with X/Y coordinates when available."""
+        session = self._load_session_once()
+        requested_driver = str(driver_number or "1")
+
+        car_data = self.get_car_data(requested_driver)
+        if car_data is None or getattr(car_data, "empty", True):
+            return car_data
+
+        pos_data = None
+        try:
+            pos_data = session.pos_data.get(requested_driver)
+        except Exception:
+            pos_data = None
+
+        if pos_data is None or getattr(pos_data, "empty", True):
+            if "X" not in car_data.columns:
+                car_data = car_data.copy()
+                car_data["X"] = pd.NA
+            if "Y" not in car_data.columns:
+                car_data = car_data.copy() if "X" in car_data.columns else car_data
+                car_data["Y"] = pd.NA
+            return car_data
+
+        try:
+            left = car_data.reset_index().rename(columns={"index": "Date"})
+            right = pos_data.reset_index().rename(columns={"index": "Date"})
+
+            # Keep only position columns needed for the frontend map.
+            available_cols = [
+                col for col in ("Date", "X", "Y", "Status") if col in right.columns
+            ]
+            right = right[available_cols].copy()
+
+            left["Date"] = pd.to_datetime(left["Date"], errors="coerce")
+            right["Date"] = pd.to_datetime(right["Date"], errors="coerce")
+            left = left.dropna(subset=["Date"]).sort_values("Date")
+            right = right.dropna(subset=["Date"]).sort_values("Date")
+
+            if "Status" in right.columns:
+                on_track = right[right["Status"] == "OnTrack"]
+                if not on_track.empty:
+                    right = on_track
+
+            merged = pd.merge_asof(
+                left,
+                right,
+                on="Date",
+                direction="nearest",
+            )
+
+            if "X" not in merged.columns:
+                merged["X"] = pd.NA
+            if "Y" not in merged.columns:
+                merged["Y"] = pd.NA
+
+            merged["X"] = pd.to_numeric(merged["X"], errors="coerce")
+            merged["Y"] = pd.to_numeric(merged["Y"], errors="coerce")
+
+            # Keep positional continuity when some points are missing or late.
+            merged["X"] = merged["X"].interpolate(limit_direction="both")
+            merged["Y"] = merged["Y"].interpolate(limit_direction="both")
+            merged["X"] = merged["X"].ffill().bfill()
+            merged["Y"] = merged["Y"].ffill().bfill()
+
+            if "Status" in merged.columns:
+                merged = merged.drop(columns=["Status"])
+
+            merged = merged.set_index("Date")
+            return merged
+        except Exception:
+            fallback = car_data.copy()
+            if "X" not in fallback.columns:
+                fallback["X"] = pd.NA
+            if "Y" not in fallback.columns:
+                fallback["Y"] = pd.NA
+            return fallback
+
     def get_circuit_path(self) -> list[dict]:
         try:
             session = self._load_session_once()
-            # Load circuit info.
             circuit_info = session.get_circuit_info()
-            if circuit_info is None or not hasattr(circuit_info, "pos"):
+
+            def _points_from_xy_source(source: Any) -> list[dict[str, float]]:
+                if source is None:
+                    return []
+
+                def _is_valid_track(points: list[dict[str, float]]) -> bool:
+                    if len(points) < 20:
+                        return False
+
+                    xs = [point["x"] for point in points]
+                    ys = [point["y"] for point in points]
+                    x_span = max(xs) - min(xs)
+                    y_span = max(ys) - min(ys)
+
+                    # Reject collapsed/degenerate paths (commonly all (0, 0)).
+                    return x_span > 1e-3 or y_span > 1e-3
+
+                # Handle DataFrame-like X/Y payload.
+                if (
+                    hasattr(source, "columns")
+                    and "X" in source.columns
+                    and "Y" in source.columns
+                ):
+                    points_df = source
+                    if "Status" in points_df.columns:
+                        on_track = points_df[points_df["Status"] == "OnTrack"]
+                        if not on_track.empty:
+                            points_df = on_track
+
+                    points_df = points_df[["X", "Y"]].dropna()
+                    points_df = points_df[
+                        (points_df["X"].abs() > 1e-6) | (points_df["Y"].abs() > 1e-6)
+                    ]
+                    points_df = points_df.drop_duplicates()
+                    if points_df.empty:
+                        return []
+
+                    # Keep enough detail for shape while limiting payload size.
+                    if len(points_df) > 4000:
+                        points_df = points_df.iloc[::4]
+
+                    points = [
+                        {"x": float(x_val), "y": float(y_val)}
+                        for x_val, y_val in points_df[["X", "Y"]].itertuples(
+                            index=False
+                        )
+                    ]
+                    return points if _is_valid_track(points) else []
+
+                # Handle ndarray-like payload.
+                if hasattr(source, "__getitem__"):
+                    try:
+                        points = [
+                            {"x": float(point[0]), "y": float(point[1])}
+                            for point in source
+                            if not (
+                                abs(float(point[0])) <= 1e-6
+                                and abs(float(point[1])) <= 1e-6
+                            )
+                        ]
+                        return points if _is_valid_track(points) else []
+                    except Exception:
+                        return []
+
                 return []
 
-            # pos is usually a numpy array or DataFrame of X, Y coordinates.
-            import numpy as np
+            # Prefer dense position data so the frontend can animate smoothly.
+            pos_data = getattr(session, "pos_data", None)
+            if isinstance(pos_data, dict) and pos_data:
+                preferred_keys = ["1"] + [key for key in pos_data if str(key) != "1"]
+                for key in preferred_keys:
+                    source = pos_data.get(key)
+                    points = _points_from_xy_source(source)
+                    if points:
+                        return points
 
-            x = (
-                circuit_info.pos[:, 0]
-                if isinstance(circuit_info.pos, np.ndarray)
-                else circuit_info.pos["X"].values
-            )
-            y = (
-                circuit_info.pos[:, 1]
-                if isinstance(circuit_info.pos, np.ndarray)
-                else circuit_info.pos["Y"].values
-            )
+            # Fallback to static circuit geometry when position data is unavailable.
+            for attr in ("pos", "corners", "marshal_lights", "marshal_sectors"):
+                source = getattr(circuit_info, attr, None) if circuit_info else None
+                points = _points_from_xy_source(source)
+                if points:
+                    return points
 
-            return [
-                {"x": float(x_val), "y": float(y_val)}
-                for x_val, y_val in zip(x, y)
-            ]
+            return []
         except Exception as exc:  # noqa: BLE001
             logging.warning("Failed to load circuit path: %s", exc)
             return []
@@ -146,7 +290,12 @@ class F1Service:
             return {"compound": "UNKNOWN", "life": 0}
 
         # Get laps for the specific driver.
-        driver_laps = self._session.laps.pick_driver(str(driver_number))
+        if hasattr(self._session.laps, "pick_drivers"):
+            driver_laps = self._session.laps.pick_drivers([str(driver_number)])
+        else:
+            driver_laps = self._session.laps[
+                self._session.laps["DriverNumber"] == str(driver_number)
+            ]
         if driver_laps.empty:
             return {"compound": "UNKNOWN", "life": 0}
 

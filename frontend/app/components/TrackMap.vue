@@ -14,6 +14,7 @@ const circuitPath = ref<{ x: number; y: number }[]>([])
 const targetX = ref(0)
 const targetY = ref(0)
 const hasInitializedTarget = ref(false)
+const lastTrackIndex = ref<number | null>(null)
 const springValues = reactive({ x: 0, y: 0 })
 // stiffness: speed of the spring, damping: resistance (prevents bouncing), mass: inertia
 const spring = useSpring(springValues, { stiffness: 80, damping: 22, mass: 1 })
@@ -106,19 +107,95 @@ const maxStepPerTick = computed(() => {
   return Math.min(220, Math.max(70, diagonal * 0.06))
 })
 
+const trackSnapMaxDistance = computed(() => {
+  if (!renderTrackPath.value.length) {
+    return 180
+  }
+
+  const xs = renderTrackPath.value.map(point => point.x)
+  const ys = renderTrackPath.value.map(point => point.y)
+  const diagonal = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys))
+  return Math.max(120, diagonal * 0.08)
+})
+
+const projectToTrackPoint = (x: number, y: number): { x: number; y: number } => {
+  const path = renderTrackPath.value
+  if (path.length < 20) {
+    return { x, y }
+  }
+
+  let bestIndex = 0
+  let bestDistanceSq = Number.POSITIVE_INFINITY
+
+  const previousIndex = lastTrackIndex.value
+  if (previousIndex !== null) {
+    const windowRadius = 260
+    const start = Math.max(0, previousIndex - windowRadius)
+    const end = Math.min(path.length - 1, previousIndex + windowRadius)
+
+    for (let i = start; i <= end; i++) {
+      const point = path[i]
+      if (!point) {
+        continue
+      }
+      const dx = point.x - x
+      const dy = point.y - y
+      const distanceSq = dx * dx + dy * dy
+      if (distanceSq < bestDistanceSq) {
+        bestDistanceSq = distanceSq
+        bestIndex = i
+      }
+    }
+  } else {
+    for (let i = 0; i < path.length; i++) {
+      const point = path[i]
+      if (!point) {
+        continue
+      }
+      const dx = point.x - x
+      const dy = point.y - y
+      const distanceSq = dx * dx + dy * dy
+      if (distanceSq < bestDistanceSq) {
+        bestDistanceSq = distanceSq
+        bestIndex = i
+      }
+    }
+  }
+
+  const snapped = path[bestIndex]
+  const snappedDistance = Math.sqrt(bestDistanceSq)
+
+  // If telemetry is clearly too far from the track envelope, keep the raw point.
+  if (!snapped || snappedDistance > trackSnapMaxDistance.value) {
+    return { x, y }
+  }
+
+  lastTrackIndex.value = bestIndex
+  return { x: snapped.x, y: snapped.y }
+}
+
 watch(
   () => props.telemetry,
   (newVal) => {
-    if (newVal?.x !== undefined && newVal?.y !== undefined) {
+    const rawX = Number(newVal?.x)
+    const rawY = Number(newVal?.y)
+
+    if (!Number.isFinite(rawX) || !Number.isFinite(rawY)) {
+      return
+    }
+
+    const { x, y } = projectToTrackPoint(rawX, rawY)
+
+    if (Number.isFinite(x) && Number.isFinite(y)) {
       if (!hasInitializedTarget.value) {
-        targetX.value = newVal.x
-        targetY.value = newVal.y
+        targetX.value = x
+        targetY.value = y
         hasInitializedTarget.value = true
         return
       }
 
-      const dx = newVal.x - targetX.value
-      const dy = newVal.y - targetY.value
+      const dx = x - targetX.value
+      const dy = y - targetY.value
       const distance = Math.hypot(dx, dy)
 
       // Ignore tiny GPS jitter and cap larger jumps to avoid visible teleportation.
@@ -145,7 +222,7 @@ watch(
 )
 
 const carPoint = computed(() => {
-  if (props.telemetry?.x === undefined || props.telemetry?.y === undefined) {
+  if (!Number.isFinite(Number(props.telemetry?.x)) || !Number.isFinite(Number(props.telemetry?.y))) {
     return null
   }
 

@@ -12,8 +12,8 @@ class TelemetryRecordSchema(BaseModel):
     rpm: int | None
     n_gear: int | None
     drs: int | None
-    x: float | None = 0.0
-    y: float | None = 0.0
+    x: float | None = None
+    y: float | None = None
     id: int = Field(alias="_id")
 
     model_config = {

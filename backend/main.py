@@ -96,6 +96,17 @@ def _to_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
+def _to_optional_float(value: Any) -> float | None:
+    try:
+        parsed = float(value)
+    except TypeError, ValueError:
+        return None
+
+    if parsed != parsed or parsed in (float("inf"), float("-inf")):
+        return None
+    return parsed
+
+
 def _to_int(value: Any, default: int = 0) -> int:
     try:
         return int(value)
@@ -178,7 +189,10 @@ async def fetch_car_data(
 ) -> list[dict[str, Any]]:
     resolved_driver = driver_number if driver_number is not None else 1
 
-    car_data = await asyncio.to_thread(f1_service.get_car_data, str(resolved_driver))
+    car_data = await asyncio.to_thread(
+        f1_service.get_car_data_with_position,
+        str(resolved_driver),
+    )
     if car_data is None or car_data.empty:
         return []
 
@@ -201,8 +215,8 @@ async def fetch_car_data(
                 "gear": gear,
                 "n_gear": gear,
                 "drs": _to_int(row.get("DRS")),
-                "x": _to_float(row.get("X")),
-                "y": _to_float(row.get("Y")),
+                "x": _to_optional_float(row.get("X")),
+                "y": _to_optional_float(row.get("Y")),
                 "_id": index,
             }
         )
