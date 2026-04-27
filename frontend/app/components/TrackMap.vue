@@ -17,7 +17,7 @@ const hasInitializedTarget = ref(false)
 const lastTrackIndex = ref<number | null>(null)
 const springValues = reactive({ x: 0, y: 0 })
 // stiffness: speed of the spring, damping: resistance (prevents bouncing), mass: inertia
-const spring = useSpring(springValues, { stiffness: 80, damping: 22, mass: 1 })
+const spring = useSpring(springValues, { stiffness: 40, damping: 28, mass: 1.2 })
 const springPosition = spring.values as Record<string, number>
 const smoothX = computed(() => Number(springPosition.x ?? targetX.value))
 const smoothY = computed(() => Number(springPosition.y ?? targetY.value))
@@ -104,46 +104,92 @@ const maxStepPerTick = computed(() => {
   const ySpan = Math.max(...ys) - Math.min(...ys)
   const diagonal = Math.hypot(xSpan, ySpan)
 
-  return Math.min(220, Math.max(70, diagonal * 0.06))
+  return Math.min(80, Math.max(20, diagonal * 0.015))
 })
 
 const trackSnapMaxDistance = computed(() => {
   if (!renderTrackPath.value.length) {
-    return 180
+    return 260
   }
 
   const xs = renderTrackPath.value.map(point => point.x)
   const ys = renderTrackPath.value.map(point => point.y)
   const diagonal = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys))
-  return Math.max(120, diagonal * 0.08)
+  return Math.max(220, diagonal * 0.2)
 })
 
-const projectToTrackPoint = (x: number, y: number): { x: number; y: number } => {
+const indexStepPerTick = computed(() => {
   const path = renderTrackPath.value
-  if (path.length < 20) {
-    return { x, y }
+  if (!path.length) {
+    return 12
   }
 
-  let bestIndex = 0
+  // Keep movement smooth while preserving curvature in tight sections.
+  return Math.max(2, Math.min(8, Math.floor(path.length / 600)))
+})
+
+const circularDistance = (from: number, to: number, size: number): number => {
+  const raw = ((to - from) % size + size) % size
+  return raw
+}
+
+const circularIndex = (index: number, size: number): number => {
+  return ((index % size) + size) % size
+}
+
+const projectToTrackPoint = (x: number, y: number): { x: number; y: number; index: number | null } => {
+  const path = renderTrackPath.value
+  if (path.length < 20) {
+    return { x, y, index: null }
+  }
+
+  let bestIndex = -1
+  let bestScore = Number.POSITIVE_INFINITY
   let bestDistanceSq = Number.POSITIVE_INFINITY
 
   const previousIndex = lastTrackIndex.value
   if (previousIndex !== null) {
-    const windowRadius = 260
-    const start = Math.max(0, previousIndex - windowRadius)
-    const end = Math.min(path.length - 1, previousIndex + windowRadius)
+    // Prefer forward progress with a tiny backward allowance for noisy samples.
+    const backwardAllowance = 10
+    const forwardWindow = 60
 
-    for (let i = start; i <= end; i++) {
+    for (let offset = -backwardAllowance; offset <= forwardWindow; offset++) {
+      const i = circularIndex(previousIndex + offset, path.length)
       const point = path[i]
       if (!point) {
         continue
       }
+
       const dx = point.x - x
       const dy = point.y - y
       const distanceSq = dx * dx + dy * dy
-      if (distanceSq < bestDistanceSq) {
+
+      // Strongly penalize backward jumps to avoid snapping to nearby parallel segments.
+      const directionPenalty = offset < 0 ? 800 : 0
+      const score = distanceSq + directionPenalty
+
+      if (score < bestScore) {
+        bestScore = score
         bestDistanceSq = distanceSq
         bestIndex = i
+      }
+    }
+
+    // If local forward-biased search fails, fall back to full-track nearest lookup.
+    if (bestIndex < 0) {
+      for (let i = 0; i < path.length; i++) {
+        const point = path[i]
+        if (!point) {
+          continue
+        }
+        const dx = point.x - x
+        const dy = point.y - y
+        const distanceSq = dx * dx + dy * dy
+        if (distanceSq < bestDistanceSq) {
+          bestDistanceSq = distanceSq
+          bestScore = distanceSq
+          bestIndex = i
+        }
       }
     }
   } else {
@@ -155,11 +201,16 @@ const projectToTrackPoint = (x: number, y: number): { x: number; y: number } => 
       const dx = point.x - x
       const dy = point.y - y
       const distanceSq = dx * dx + dy * dy
-      if (distanceSq < bestDistanceSq) {
+      if (distanceSq < bestScore) {
+        bestScore = distanceSq
         bestDistanceSq = distanceSq
         bestIndex = i
       }
     }
+  }
+
+  if (bestIndex < 0) {
+    return { x, y, index: null }
   }
 
   const snapped = path[bestIndex]
@@ -167,11 +218,10 @@ const projectToTrackPoint = (x: number, y: number): { x: number; y: number } => 
 
   // If telemetry is clearly too far from the track envelope, keep the raw point.
   if (!snapped || snappedDistance > trackSnapMaxDistance.value) {
-    return { x, y }
+    return { x, y, index: null }
   }
 
-  lastTrackIndex.value = bestIndex
-  return { x: snapped.x, y: snapped.y }
+  return { x: snapped.x, y: snapped.y, index: bestIndex }
 }
 
 watch(
@@ -184,7 +234,39 @@ watch(
       return
     }
 
-    const { x, y } = projectToTrackPoint(rawX, rawY)
+    const projected = projectToTrackPoint(rawX, rawY)
+    let x = projected.x
+    let y = projected.y
+
+    const path = renderTrackPath.value
+    const previousIndex = lastTrackIndex.value
+
+    if (projected.index !== null && path.length > 0) {
+      if (previousIndex !== null) {
+        const forwardDelta = circularDistance(previousIndex, projected.index, path.length)
+
+        // Ignore implausible index jumps that usually come from noisy nearest-point matches.
+        const maxTrustedDelta = Math.max(60, Math.floor(path.length * 0.25))
+        const trustedDelta = forwardDelta <= maxTrustedDelta ? forwardDelta : indexStepPerTick.value
+        const step = Math.min(Math.max(1, trustedDelta), indexStepPerTick.value)
+        const nextIndex = circularIndex(previousIndex + step, path.length)
+        const nextPoint = path[nextIndex]
+        if (nextPoint) {
+          x = nextPoint.x
+          y = nextPoint.y
+          lastTrackIndex.value = nextIndex
+        }
+      } else {
+        lastTrackIndex.value = projected.index
+      }
+    } else if (previousIndex !== null && path.length > 0) {
+      // Keep marker on track when incoming point cannot be confidently snapped.
+      const holdPoint = path[previousIndex]
+      if (holdPoint) {
+        x = holdPoint.x
+        y = holdPoint.y
+      }
+    }
 
     if (Number.isFinite(x) && Number.isFinite(y)) {
       if (!hasInitializedTarget.value) {
