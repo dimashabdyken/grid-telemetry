@@ -13,9 +13,10 @@ const props = defineProps<{
 const circuitPath = ref<{ x: number; y: number }[]>([])
 const targetX = ref(0)
 const targetY = ref(0)
+const hasInitializedTarget = ref(false)
 const springValues = reactive({ x: 0, y: 0 })
 // stiffness: speed of the spring, damping: resistance (prevents bouncing), mass: inertia
-const spring = useSpring(springValues, { stiffness: 80, damping: 15, mass: 1 })
+const spring = useSpring(springValues, { stiffness: 80, damping: 22, mass: 1 })
 const springPosition = spring.values as Record<string, number>
 const smoothX = computed(() => Number(springPosition.x ?? targetX.value))
 const smoothY = computed(() => Number(springPosition.y ?? targetY.value))
@@ -91,15 +92,48 @@ const carColor = computed(() => {
   return props.teamColor ? `#${props.teamColor.replace('#', '')}` : '#ffffff'
 })
 
+const maxStepPerTick = computed(() => {
+  if (!renderTrackPath.value.length) {
+    return 120
+  }
+
+  const xs = renderTrackPath.value.map(point => point.x)
+  const ys = renderTrackPath.value.map(point => point.y)
+  const xSpan = Math.max(...xs) - Math.min(...xs)
+  const ySpan = Math.max(...ys) - Math.min(...ys)
+  const diagonal = Math.hypot(xSpan, ySpan)
+
+  return Math.min(220, Math.max(70, diagonal * 0.06))
+})
+
 watch(
   () => props.telemetry,
   (newVal) => {
     if (newVal?.x !== undefined && newVal?.y !== undefined) {
-      targetX.value = newVal.x
-      targetY.value = newVal.y
+      if (!hasInitializedTarget.value) {
+        targetX.value = newVal.x
+        targetY.value = newVal.y
+        hasInitializedTarget.value = true
+        return
+      }
+
+      const dx = newVal.x - targetX.value
+      const dy = newVal.y - targetY.value
+      const distance = Math.hypot(dx, dy)
+
+      // Ignore tiny GPS jitter and cap larger jumps to avoid visible teleportation.
+      if (distance < 1) {
+        return
+      }
+
+      const cappedStep = Math.min(distance, maxStepPerTick.value)
+      const ratio = cappedStep / distance
+
+      targetX.value += dx * ratio
+      targetY.value += dy * ratio
     }
   },
-  { immediate: true, deep: true },
+  { immediate: true },
 )
 
 watch(
