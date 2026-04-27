@@ -12,6 +12,8 @@ const gear = computed(() => props.data?.n_gear ?? 0)
 const throttle = computed(() => props.data?.throttle ?? 0)
 const brake = computed(() => props.data?.brake ?? 0)
 const rpm = computed(() => props.data?.rpm ?? 0)
+// DRS is active if value is >= 8
+const isDrsActive = computed(() => (props.data?.drs ?? 0) >= 8)
 
 const smoothSpeed = useTransition(speed, {
   duration: 150,
@@ -75,13 +77,14 @@ const ledColorClass = (i: number) => {
           </div>
         </div>
         <div
-          class="flex h-9 min-w-12 items-center justify-center rounded border px-2 text-xs font-black uppercase tracking-[0.16em] transition-all duration-200"
-          :class="data?.drs === 1
-            ? 'border-[#00ff00] text-[#00ff00] shadow-[0_0_8px_#00ff00]'
-            : 'border-gray-700 text-gray-700'"
+          class="px-2 py-1 rounded border text-[10px] font-black uppercase tracking-widest transition-all duration-100"
+          :class="isDrsActive
+            ? 'bg-green-500/20 border-green-500 text-green-400 shadow-[0_0_10px_#22c55e]'
+            : 'bg-gray-800 border-gray-700 text-gray-600'"
         >
-          DRS
+          {{ data ? 'DRS' : 'N/A' }}
         </div>
+        <div class="text-[8px] text-gray-500">DRS_RAW: {{ data?.drs }}</div>
       </div>
     </div>
 
