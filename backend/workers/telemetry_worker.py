@@ -16,11 +16,23 @@ logger = logging.getLogger(__name__)
 RPM_REDLINE = 14500
 THROTTLE_WOT = 95
 BRAKE_HEAVY = 90
-DRS_FAULT_CODES = {14}
+DRS_FAULT_CODES: set[int] = set()
+DRS_RECOGNIZED_CODES = {0, 1, 8, 10, 12, 14}
 REPLAY_WINDOW_SIZE = 600
 REPLAY_WINDOW_STRIDE_DIVISOR = 6
 TELEMETRY_FETCH_TIMEOUT_SECONDS = 2.0
 FALLBACK_RETRY_TICKS = 20
+
+
+def is_drs_active(drs_val: int) -> bool:
+    return drs_val in [1, 8, 10, 12, 14]
+
+
+def _is_drs_fault(drs_val: int) -> bool:
+    if drs_val == 0 or is_drs_active(drs_val):
+        return False
+
+    return drs_val in DRS_FAULT_CODES or drs_val not in DRS_RECOGNIZED_CODES
 
 
 def _row_to_record(row: Any, session_key: str, driver_number: int) -> dict[str, Any]:
@@ -107,7 +119,7 @@ def compute_vehicle_health(records: list[dict[str, Any]]) -> dict[str, Any]:
         warnings.append("SUSTAINED_WOT")
         deductions += 10
 
-    if any(_to_int(r.get("drs")) in DRS_FAULT_CODES for r in records):
+    if any(_is_drs_fault(_to_int(r.get("drs"))) for r in records):
         warnings.append("DRS_FAULT")
         deductions += 10
 
