@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { TransitionPresets, useTransition } from '@vueuse/core'
 import { getCircuitPath } from '~/lib/api'
 import type { CarDataRecord } from '~/lib/types'
 
@@ -10,7 +11,10 @@ const props = defineProps<{
 }>()
 
 const circuitPath = ref<{ x: number; y: number }[]>([])
-const dotPosition = ref<{ x: number; y: number } | null>(null)
+const targetX = ref(0)
+const targetY = ref(0)
+const smoothX = useTransition(targetX, { duration: 100, transition: TransitionPresets.linear })
+const smoothY = useTransition(targetY, { duration: 100, transition: TransitionPresets.linear })
 
 // Generate a synthetic circular track for fallback/demo mode
 const generateSyntheticTrack = (): { x: number; y: number }[] => {
@@ -86,23 +90,24 @@ const carColor = computed(() => {
 watch(
   () => props.telemetry,
   (newVal) => {
-    if (!newVal) {
-      dotPosition.value = null
-      return
-    }
-
-    // Keep updates synchronized to telemetry packets (timestamp-driven stream).
-    if (newVal.x !== undefined && newVal.y !== undefined) {
-      dotPosition.value = {
-        x: newVal.x,
-        y: newVal.y,
-      }
+    if (newVal?.x !== undefined && newVal?.y !== undefined) {
+      targetX.value = newVal.x
+      targetY.value = newVal.y
     }
   },
-  { immediate: true },
+  { immediate: true, deep: true },
 )
 
-const carPoint = computed(() => dotPosition.value)
+const carPoint = computed(() => {
+  if (props.telemetry?.x === undefined || props.telemetry?.y === undefined) {
+    return null
+  }
+
+  return {
+    x: smoothX.value,
+    y: smoothY.value,
+  }
+})
 </script>
 
 <template>
@@ -144,13 +149,13 @@ const carPoint = computed(() => dotPosition.value)
       <!-- Car Dot -->
       <circle
         v-if="carPoint"
-        :cx="carPoint.x"
-        :cy="carPoint.y"
-        r="350"
+        :cx="smoothX"
+        :cy="smoothY"
+        r="250"
         :fill="carColor"
         stroke="#ffffff"
-        stroke-width="100"
-        class="transition-all duration-[200ms] ease-linear"
+        stroke-width="80"
+        class="drop-shadow"
       />
     </svg>
   </div>
