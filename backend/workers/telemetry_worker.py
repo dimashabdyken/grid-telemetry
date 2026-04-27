@@ -11,6 +11,8 @@ from backend.db.base import AsyncSessionLocal
 from backend.db.service import save_telemetry_batch
 from backend.services.f1_service import f1_service
 
+logger = logging.getLogger(__name__)
+
 RPM_REDLINE = 14500
 THROTTLE_WOT = 95
 BRAKE_HEAVY = 90
@@ -50,14 +52,14 @@ def _row_to_record(row: Any, session_key: str, driver_number: int) -> dict[str, 
 def _to_float(value: Any, default: float = 0.0) -> float:
     try:
         return float(value)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return default
 
 
 def _to_optional_float(value: Any) -> float | None:
     try:
         parsed = float(value)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return None
 
     return parsed if math.isfinite(parsed) else None
@@ -66,7 +68,7 @@ def _to_optional_float(value: Any) -> float | None:
 def _to_int(value: Any, default: int = 0) -> int:
     try:
         return int(value)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return default
 
 
@@ -293,6 +295,12 @@ async def poll_telemetry(
 
     # Pick a representative high-pace contiguous segment for better replay realism.
     replay_records = _select_replay_window(records)
+    record_count = len(replay_records)
+    if record_count == 0:
+        logger.warning(
+            "Telemetry replay has no records after window selection; stopping stream"
+        )
+        return
 
     async def _persist(
         records_to_save: list[dict[str, Any]], health_data: dict[str, Any]
@@ -303,37 +311,46 @@ async def poll_telemetry(
         except Exception as exc:  # noqa: BLE001
             logging.error(f"DB save failed: {exc}")
 
-    record_count = len(replay_records)
-    idx = 0
+    loop_iteration = 0
     while True:
-        try:
-            i = idx % record_count
-            record = replay_records[i]
-            recent_records = replay_records[max(0, i - 9) : i + 1]
-            record_dict, health = await asyncio.to_thread(
-                _process_record_sync,
-                record,
-                recent_records,
+        logger.info(
+            "Telemetry replay loop iteration=%s records=%s",
+            loop_iteration,
+            record_count,
+        )
+        for i, record in enumerate(replay_records):
+            logger.debug(
+                "Telemetry replay frame records=%s index=%s",
+                record_count,
+                i,
             )
+            try:
+                recent_records = replay_records[max(0, i - 9) : i + 1]
+                record_dict, health = await asyncio.to_thread(
+                    _process_record_sync,
+                    record,
+                    recent_records,
+                )
 
-            if len(asyncio.all_tasks()) < 50:
-                asyncio.create_task(_persist([record_dict], health))
+                if len(asyncio.all_tasks()) < 50:
+                    asyncio.create_task(_persist([record_dict], health))
 
-            yield {
-                "type": "telemetry",
-                "session_key": resolved_session_key,
-                "driver_number": resolved_driver,
-                "health": health,
-                "new_records": 1,
-                "latest": record_dict,
-                "timestamp": record_dict.get("date"),
-            }
-        except Exception as exc:  # noqa: BLE001
-            logging.error(f"Error in replay loop: {exc}")
+                yield {
+                    "type": "telemetry",
+                    "session_key": resolved_session_key,
+                    "driver_number": resolved_driver,
+                    "health": health,
+                    "new_records": 1,
+                    "latest": record_dict,
+                    "timestamp": record_dict.get("date"),
+                }
+            except Exception as exc:  # noqa: BLE001
+                logging.error(f"Error in replay loop: {exc}")
 
-        # Keep the event loop responsive and simulate stable telemetry frequency (10Hz).
-        await asyncio.sleep(interval_seconds)
-        idx += 1
+            # Keep the event loop responsive and simulate stable telemetry frequency (10Hz).
+            await asyncio.sleep(interval_seconds)
+
+        loop_iteration += 1
 
 
 async def _demo() -> None:
