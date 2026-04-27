@@ -21,6 +21,4 @@ Grid Telemetry is a telemetry platform for ingesting, processing, and presenting
 - Tailwind
 - shadcn-vue
 
-## Project Structure
-
 
