@@ -319,11 +319,12 @@ async def poll_telemetry(
             record_count,
         )
         for i, record in enumerate(replay_records):
-            logger.debug(
-                "Telemetry replay frame records=%s index=%s",
-                record_count,
-                i,
-            )
+            if i < 5 or i % 50 == 0:
+                logger.info(
+                    "Telemetry replay frame records=%s index=%s",
+                    record_count,
+                    i,
+                )
             try:
                 recent_records = replay_records[max(0, i - 9) : i + 1]
                 record_dict, health = await asyncio.to_thread(
