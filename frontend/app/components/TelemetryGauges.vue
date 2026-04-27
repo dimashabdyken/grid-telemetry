@@ -65,12 +65,22 @@ const ledColorClass = (i: number) => {
         </div>
       </div>
 
-      <div class="bg-[#0a0a0f] rounded-lg border border-white/5 p-3 flex flex-col items-center justify-center shadow-inner">
-        <div class="text-4xl xl:text-5xl font-black italic text-white tracking-tighter tabular-nums leading-none">
-          {{ gear }}
+      <div class="bg-[#0a0a0f] rounded-lg border border-white/5 p-3 flex items-center justify-center gap-3 shadow-inner">
+        <div class="flex flex-col items-center justify-center">
+          <div class="text-4xl xl:text-5xl font-black italic text-white tracking-tighter tabular-nums leading-none">
+            {{ gear }}
+          </div>
+          <div class="text-[10px] text-gray-500 uppercase tracking-[0.2em] mt-1 font-bold">
+            GEAR
+          </div>
         </div>
-        <div class="text-[10px] text-gray-500 uppercase tracking-[0.2em] mt-1 font-bold">
-          GEAR
+        <div
+          class="flex h-9 min-w-12 items-center justify-center rounded border px-2 text-xs font-black uppercase tracking-[0.16em] transition-all duration-200"
+          :class="data?.drs === 1
+            ? 'border-[#00ff00] text-[#00ff00] shadow-[0_0_8px_#00ff00]'
+            : 'border-gray-700 text-gray-700'"
+        >
+          DRS
         </div>
       </div>
     </div>
