@@ -86,5 +86,5 @@ const chartOption = computed(() => ({
 </script>
 
 <template>
-  <VueECharts class="h-64" :option="chartOption" autoresize />
+  <VueECharts class="h-full w-full" :option="chartOption" autoresize />
 </template>
