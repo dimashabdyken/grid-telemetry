@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useSpring } from '@vueuse/motion'
+import { computed, onMounted, ref } from 'vue'
+import { TransitionPresets, useTransition } from '@vueuse/core'
 import { getCircuitPath } from '~/lib/api'
 import type { CarDataRecord } from '~/lib/types'
 
@@ -86,20 +86,9 @@ const carColor = computed(() => {
 const targetX = computed(() => props.telemetry?.x ?? 0)
 const targetY = computed(() => props.telemetry?.y ?? 0)
 
-// stiffness: speed of response, damping: friction (stops wobbling)
-const springValues = reactive({ x: 0, y: 0 })
-const spring = useSpring(springValues, { stiffness: 35, damping: 12, mass: 1 })
-const springPosition = spring.values as Record<string, number>
-const smoothX = computed(() => Number(springPosition.x ?? targetX.value))
-const smoothY = computed(() => Number(springPosition.y ?? targetY.value))
-
-watch(
-  [targetX, targetY],
-  ([x, y]) => {
-    spring.set({ x, y })
-  },
-  { immediate: true },
-)
+// Use strict linear transition matching the 100ms backend polling rate
+const smoothX = useTransition(targetX, { duration: 100, transition: TransitionPresets.linear })
+const smoothY = useTransition(targetY, { duration: 100, transition: TransitionPresets.linear })
 
 const carPoint = computed(() => {
   if (props.telemetry?.x != null && props.telemetry?.y != null && props.telemetry.x !== 0 && props.telemetry.y !== 0) {
