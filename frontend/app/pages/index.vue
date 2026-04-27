@@ -113,22 +113,26 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <div class="md:col-span-2 lg:col-span-2">
-        <div v-if="!latestTelemetry" class="flex flex-col items-center justify-center h-[280px] md:h-[320px] text-gray-500 bg-[#1e1e28] rounded-xl p-4 border border-white/5 shadow-lg">
-          <p class="text-lg font-bold uppercase tracking-widest">Waiting for data...</p>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 col-span-full">
+        <div>
+          <div v-if="!latestTelemetry" class="flex flex-col items-center justify-center h-[320px] text-gray-500 bg-[#1e1e28] rounded-xl p-4 border border-white/5 shadow-lg">
+            <p class="text-lg font-bold uppercase tracking-widest">Waiting for data...</p>
+          </div>
+          <TrackMap v-else :telemetry="latestTelemetry" :team-color="driverInfo?.team_colour" />
         </div>
-        <TrackMap v-else :telemetry="latestTelemetry" :team-color="driverInfo?.team_colour" />
-      </div>
 
-      <section class="col-span-full bg-[#1e1e28] rounded-xl p-6 border border-white/5 shadow-lg">
-        <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold mb-4">
-          Speed Trend
-        </h2>
-        <div v-if="!latestTelemetry" class="flex flex-col items-center justify-center h-48 text-gray-500">
-          <p class="text-lg font-bold uppercase tracking-widest">Waiting for data...</p>
+        <div class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 shadow-lg h-[320px] flex flex-col">
+          <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold mb-4">
+            Speed Trend
+          </h2>
+          <div v-if="!latestTelemetry" class="flex flex-col items-center justify-center flex-1 text-gray-500">
+            <p class="text-lg font-bold uppercase tracking-widest">Waiting for data...</p>
+          </div>
+          <div v-else class="flex-1 overflow-auto">
+            <TelemetryChart :data="smoothedTelemetry" />
+          </div>
         </div>
-        <TelemetryChart v-else :data="smoothedTelemetry" />
-      </section>
+      </div>
 
       <div class="col-span-full">
         <WarningHistoryPanel />

@@ -100,7 +100,7 @@ const carPoint = computed(() => {
 </script>
 
 <template>
-  <div class="bg-[#1e1e28] rounded-xl p-4 border border-white/5 shadow-lg flex flex-col h-[280px] md:h-[320px] relative overflow-hidden">
+  <div class="bg-[#1e1e28] rounded-xl p-4 border border-white/5 shadow-lg flex flex-col h-[320px] w-full relative overflow-hidden">
     <h2 class="absolute top-6 left-6 text-sm text-gray-400 uppercase tracking-widest font-bold z-10">Track Map</h2>
     
     <svg
