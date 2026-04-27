@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { TransitionPresets, useTransition } from '@vueuse/core'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useSpring } from '@vueuse/motion'
 import { getCircuitPath } from '~/lib/api'
 import type { CarDataRecord } from '~/lib/types'
 
@@ -13,8 +13,12 @@ const props = defineProps<{
 const circuitPath = ref<{ x: number; y: number }[]>([])
 const targetX = ref(0)
 const targetY = ref(0)
-const smoothX = useTransition(targetX, { duration: 100, transition: TransitionPresets.linear })
-const smoothY = useTransition(targetY, { duration: 100, transition: TransitionPresets.linear })
+const springValues = reactive({ x: 0, y: 0 })
+// stiffness: speed of the spring, damping: resistance (prevents bouncing), mass: inertia
+const spring = useSpring(springValues, { stiffness: 80, damping: 15, mass: 1 })
+const springPosition = spring.values as Record<string, number>
+const smoothX = computed(() => Number(springPosition.x ?? targetX.value))
+const smoothY = computed(() => Number(springPosition.y ?? targetY.value))
 
 // Generate a synthetic circular track for fallback/demo mode
 const generateSyntheticTrack = (): { x: number; y: number }[] => {
@@ -96,6 +100,14 @@ watch(
     }
   },
   { immediate: true, deep: true },
+)
+
+watch(
+  [targetX, targetY],
+  ([x, y]) => {
+    spring.set({ x, y })
+  },
+  { immediate: true },
 )
 
 const carPoint = computed(() => {
