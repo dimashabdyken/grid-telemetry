@@ -120,13 +120,6 @@ const carPoint = computed(() => {
         stroke-linecap="round"
       />
 
-      <!-- Driver Label -->
-      <g v-if="carPoint && driverAcronym" :transform="`translate(${carPoint.x + 200}, ${carPoint.y}) scale(1, -1)`">
-        <rect x="0" y="-80" width="380" height="160" rx="80" fill="#ffffff" />
-        <rect x="0" y="-80" width="60" height="160" rx="30" :fill="carColor" />
-        <text x="90" y="40" fill="#000000" font-size="120" font-weight="900" font-family="sans-serif">{{ driverAcronym }}</text>
-      </g>
-
       <!-- Car Dot -->
       <circle
         v-if="carPoint"

@@ -125,7 +125,23 @@ class F1Service:
 
         pos_data = None
         try:
-            pos_data = session.pos_data.get(requested_driver)
+            pos_map = getattr(session, "pos_data", None)
+            if isinstance(pos_map, dict):
+                candidate_keys: list[Any] = [requested_driver]
+                if requested_driver.isdigit():
+                    candidate_keys.append(int(requested_driver))
+
+                for key in candidate_keys:
+                    if key in pos_map:
+                        pos_data = pos_map.get(key)
+                        break
+
+                if pos_data is None:
+                    # Handle mixed key typing from upstream providers.
+                    for key, value in pos_map.items():
+                        if str(key) == requested_driver:
+                            pos_data = value
+                            break
         except Exception:
             pos_data = None
 

@@ -92,14 +92,14 @@ HEARTBEAT_TIMEOUT_SECONDS = 30.0
 def _to_float(value: Any, default: float = 0.0) -> float:
     try:
         return float(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
 
 
 def _to_optional_float(value: Any) -> float | None:
     try:
         parsed = float(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
     if parsed != parsed or parsed in (float("inf"), float("-inf")):
@@ -110,7 +110,7 @@ def _to_optional_float(value: Any) -> float | None:
 def _to_int(value: Any, default: int = 0) -> int:
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
 
 
@@ -418,7 +418,7 @@ async def _ws_ping_loop(websocket: WebSocket, room: str) -> None:
             raise TimeoutError("WebSocket heartbeat timeout")
         try:
             await websocket.send_text(orjson.dumps({"type": "ping"}).decode("utf-8"))
-        except (WebSocketDisconnect, RuntimeError):
+        except WebSocketDisconnect, RuntimeError:
             # The connection is closing/closed; exit ping loop without escalating.
             return
 
