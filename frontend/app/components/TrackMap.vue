@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useSpring } from '@vueuse/motion'
 import { getCircuitPath } from '~/lib/api'
 import type { CarDataRecord } from '~/lib/types'
 
@@ -82,6 +83,24 @@ const carColor = computed(() => {
   return props.teamColor ? `#${props.teamColor.replace('#', '')}` : '#ffffff'
 })
 
+const targetX = computed(() => props.telemetry?.x ?? 0)
+const targetY = computed(() => props.telemetry?.y ?? 0)
+
+// stiffness: speed of response, damping: friction (stops wobbling)
+const springValues = reactive({ x: 0, y: 0 })
+const spring = useSpring(springValues, { stiffness: 35, damping: 12, mass: 1 })
+const springPosition = spring.values as Record<string, number>
+const smoothX = computed(() => Number(springPosition.x ?? targetX.value))
+const smoothY = computed(() => Number(springPosition.y ?? targetY.value))
+
+watch(
+  [targetX, targetY],
+  ([x, y]) => {
+    spring.set({ x, y })
+  },
+  { immediate: true },
+)
+
 const carPoint = computed(() => {
   if (props.telemetry?.x != null && props.telemetry?.y != null && props.telemetry.x !== 0 && props.telemetry.y !== 0) {
     return { x: props.telemetry.x, y: props.telemetry.y }
@@ -120,28 +139,28 @@ const carPoint = computed(() => {
         stroke-linecap="round"
       />
 
-      <!-- Driver Label -->
       <g
-        v-if="carPoint && driverAcronym"
-        :transform="`translate(${carPoint.x + 200}, ${carPoint.y}) scale(1, -1)`"
-        class="transition-all duration-[100ms] ease-linear"
-      >
-        <rect x="0" y="-80" width="380" height="160" rx="80" fill="#ffffff" />
-        <rect x="0" y="-80" width="60" height="160" rx="30" :fill="carColor" />
-        <text x="90" y="40" fill="#000000" font-size="120" font-weight="900" font-family="sans-serif">{{ driverAcronym }}</text>
-      </g>
-
-      <!-- Car Dot -->
-      <circle
         v-if="carPoint"
-        :cx="carPoint.x"
-        :cy="carPoint.y"
-        r="250"
-        :fill="carColor"
-        stroke="#ffffff"
-        stroke-width="80"
-        class="transition-all duration-[100ms] ease-linear drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
-      />
+        :style="{ transform: `translate(${smoothX}px, ${smoothY}px)` }"
+      >
+        <!-- Driver Label -->
+        <g v-if="driverAcronym" :transform="'translate(200, 0) scale(1, -1)'">
+          <rect x="0" y="-80" width="380" height="160" rx="80" fill="#ffffff" />
+          <rect x="0" y="-80" width="60" height="160" rx="30" :fill="carColor" />
+          <text x="90" y="40" fill="#000000" font-size="120" font-weight="900" font-family="sans-serif">{{ driverAcronym }}</text>
+        </g>
+
+        <!-- Car Dot -->
+        <circle
+          cx="0"
+          cy="0"
+          r="250"
+          :fill="carColor"
+          stroke="#ffffff"
+          stroke-width="80"
+          class="drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
+        />
+      </g>
     </svg>
   </div>
 </template>
