@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { TransitionPresets, useTransition } from '@vueuse/core'
 import { getCircuitPath } from '~/lib/api'
 import type { CarDataRecord } from '~/lib/types'
 
@@ -83,13 +82,6 @@ const carColor = computed(() => {
   return props.teamColor ? `#${props.teamColor.replace('#', '')}` : '#ffffff'
 })
 
-const targetX = computed(() => props.telemetry?.x ?? 0)
-const targetY = computed(() => props.telemetry?.y ?? 0)
-
-// Use strict linear transition matching the 100ms backend polling rate
-const smoothX = useTransition(targetX, { duration: 100, transition: TransitionPresets.linear })
-const smoothY = useTransition(targetY, { duration: 100, transition: TransitionPresets.linear })
-
 const carPoint = computed(() => {
   if (props.telemetry?.x != null && props.telemetry?.y != null && props.telemetry.x !== 0 && props.telemetry.y !== 0) {
     return { x: props.telemetry.x, y: props.telemetry.y }
@@ -100,7 +92,7 @@ const carPoint = computed(() => {
 </script>
 
 <template>
-  <div class="bg-[#1e1e28] rounded-xl p-4 border border-white/5 shadow-lg flex flex-col h-[320px] w-full relative overflow-hidden">
+  <div class="bg-[#1e1e28] rounded-xl p-4 border border-white/5 shadow-lg flex flex-col h-[280px] md:h-[320px] relative overflow-hidden">
     <h2 class="absolute top-6 left-6 text-sm text-gray-400 uppercase tracking-widest font-bold z-10">Track Map</h2>
     
     <svg
@@ -128,28 +120,24 @@ const carPoint = computed(() => {
         stroke-linecap="round"
       />
 
-      <g
-        v-if="carPoint"
-        :style="{ transform: `translate(${smoothX}px, ${smoothY}px)` }"
-      >
-        <!-- Driver Label -->
-        <g v-if="driverAcronym" :transform="'translate(200, 0) scale(1, -1)'">
-          <rect x="0" y="-80" width="380" height="160" rx="80" fill="#ffffff" />
-          <rect x="0" y="-80" width="60" height="160" rx="30" :fill="carColor" />
-          <text x="90" y="40" fill="#000000" font-size="120" font-weight="900" font-family="sans-serif">{{ driverAcronym }}</text>
-        </g>
-
-        <!-- Car Dot -->
-        <circle
-          cx="0"
-          cy="0"
-          r="250"
-          :fill="carColor"
-          stroke="#ffffff"
-          stroke-width="80"
-          class="drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
-        />
+      <!-- Driver Label -->
+      <g v-if="carPoint && driverAcronym" :transform="`translate(${carPoint.x + 200}, ${carPoint.y}) scale(1, -1)`">
+        <rect x="0" y="-80" width="380" height="160" rx="80" fill="#ffffff" />
+        <rect x="0" y="-80" width="60" height="160" rx="30" :fill="carColor" />
+        <text x="90" y="40" fill="#000000" font-size="120" font-weight="900" font-family="sans-serif">{{ driverAcronym }}</text>
       </g>
+
+      <!-- Car Dot -->
+      <circle
+        v-if="carPoint"
+        :cx="carPoint.x"
+        :cy="carPoint.y"
+        r="250"
+        :fill="carColor"
+        stroke="#ffffff"
+        stroke-width="80"
+        class="drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
+      />
     </svg>
   </div>
 </template>
