@@ -134,12 +134,24 @@ def compute_vehicle_health(records: list[dict[str, Any]]) -> dict[str, Any]:
 
     score = max(0, 100 - deductions)
 
+    # Calculated Engine Load (0-100%) based on throttle and rpm.
+    engine_load = min(
+        100,
+        (_to_float(latest.get("throttle")) * 0.4)
+        + ((_to_int(latest.get("rpm")) / RPM_REDLINE) * 60),
+    )
+
+    # Calculated Brake Aggression (0-100%).
+    brake_aggression = _to_float(latest.get("brake"))
+
     snapshot = {
         "date": latest.get("date"),
         "rpm": _to_int(latest.get("rpm")),
         "speed": _to_float(latest.get("speed")),
         "throttle": _to_float(latest.get("throttle")),
         "brake": _to_float(latest.get("brake")),
+        "engine_load": engine_load,
+        "brake_aggression": brake_aggression,
         "drs": _to_int(latest.get("drs")),
         "n_gear": _to_int(latest.get("n_gear")),
     }

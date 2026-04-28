@@ -53,6 +53,8 @@ export interface CarDataRecord {
 export interface VehicleSnapshot {
     throttle: number
     brake: number
+    engine_load?: number
+    brake_aggression?: number
     rpm: number
     speed: number
     gear: number

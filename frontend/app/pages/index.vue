@@ -88,7 +88,12 @@
             <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg h-full">
             <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold mb-2">System Health</h2>
             <div class="flex flex-col items-center justify-center flex-1">
-              <HealthScoreRing :score="score" :severity="highestSeverity || 'NORMAL'" />
+              <HealthScoreRing
+                :score="score"
+                :severity="highestSeverity || 'NORMAL'"
+                :engine-load="currentHealth?.snapshot?.engine_load ?? 0"
+                :brake-aggression="currentHealth?.snapshot?.brake_aggression ?? 0"
+              />
             </div>
           </section>
             <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg h-full">
