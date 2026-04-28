@@ -17,6 +17,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "echarts": "^6.0.0",
+    "framer-motion": "^12.38.0",
     "lucide-vue-next": "^1.0.0",
     "nuxt": "^4.4.2",
     "reka-ui": "^2.9.5",

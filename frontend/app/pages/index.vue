@@ -3,6 +3,7 @@
   import { getDrivers, getSession, getTyreStatus } from '~/lib/api'
   import DriverCard from '~/components/DriverCard.vue'
   import HealthScoreRing from '~/components/HealthScoreRing.vue'
+  import LightSpeedBackground from '~/components/LightSpeedBackground.vue'
   import MasterWarningPanel from '~/components/MasterWarningPanel.vue'
   import TelemetryChart from '~/components/TelemetryChart.vue'
   import TelemetryGauges from '~/components/TelemetryGauges.vue'
@@ -60,9 +61,11 @@
   </script>
 
   <template>
-    <div class="min-h-screen bg-[#15151e] text-slate-100 font-sans">
+    <div class="relative isolate min-h-screen overflow-hidden bg-transparent text-slate-100 font-sans">
+      <LightSpeedBackground />
+
       <header
-        class="border-b border-white/10 border-t-4 border-t-[#e10600] bg-black/40 px-6 py-4 flex items-center justify-between"
+        class="relative z-10 border-b border-white/10 border-t-4 border-t-[#e10600] bg-black/40 px-6 py-4 flex items-center justify-between"
       >
         <h1 class="text-2xl font-black tracking-tighter uppercase text-white flex items-center gap-3">
           Grid Telemetry
@@ -77,11 +80,11 @@
         </div>
       </header>
 
-      <div class="max-w-7xl mx-auto px-6 pt-6">
+      <div class="relative z-10 max-w-7xl mx-auto px-6 pt-6">
         <MasterWarningPanel :warnings="warnings" />
       </div>
 
-        <main class="p-6 max-w-7xl mx-auto flex flex-col gap-6">
+        <main class="relative z-10 p-6 max-w-7xl mx-auto flex flex-col gap-6">
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
           <DriverCard :driver="driverInfo" />
           <TyreStatusCard :tyre-status="tyreInfo" />
