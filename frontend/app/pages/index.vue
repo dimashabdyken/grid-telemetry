@@ -82,16 +82,16 @@
       </div>
 
         <main class="p-6 max-w-7xl mx-auto flex flex-col gap-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
           <DriverCard :driver="driverInfo" />
           <TyreStatusCard :tyre-status="tyreInfo" />
-          <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg">
+            <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg h-full">
             <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold mb-2">System Health</h2>
             <div class="flex flex-col items-center justify-center flex-1">
               <HealthScoreRing :score="score" :severity="highestSeverity || 'NORMAL'" />
             </div>
           </section>
-          <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg">
+            <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg h-full">
             <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold">Telemetry Stream</h2>
             <div v-if="!latestTelemetry" class="flex flex-col items-center justify-center h-48 text-gray-500">
               <p class="text-lg font-bold uppercase tracking-widest">Waiting for data...</p>
@@ -102,15 +102,15 @@
           </section>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-          <div class="h-[320px]">
-            <div v-if="!latestTelemetry" class="flex flex-col items-center justify-center h-[320px] text-gray-500 bg-[#1e1e28] rounded-xl p-4 border border-white/5 shadow-lg">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+            <div class="h-[320px] h-full">
+              <div v-if="!latestTelemetry" class="flex flex-col items-center justify-center h-full text-gray-500 bg-[#1e1e28] rounded-xl p-4 border border-white/5 shadow-lg">
               <p class="text-lg font-bold uppercase tracking-widest">Waiting for data...</p>
             </div>
             <TrackMap v-else :telemetry="latestTelemetry" :team-color="driverInfo?.team_colour" :driver-acronym="driverInfo?.name_acronym" />
           </div>
 
-          <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 shadow-lg h-[320px] flex flex-col">
+            <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 shadow-lg h-[320px] h-full flex flex-col">
             <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold mb-4">Speed Trend</h2>
             <div v-if="!latestTelemetry" class="flex flex-col items-center justify-center flex-1 text-gray-500">
               <p class="text-lg font-bold uppercase tracking-widest">Waiting for data...</p>
