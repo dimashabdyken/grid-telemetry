@@ -61,6 +61,22 @@ const normalizedEngineLoad = computed(() =>
 const normalizedBrakeAggression = computed(() =>
   Math.min(100, Math.max(0, props.brakeAggression))
 )
+
+const engineLoadTextClass = computed(() =>
+  normalizedEngineLoad.value > 85 ? 'text-orange-400' : 'text-white'
+)
+
+const engineLoadBarClass = computed(() =>
+  normalizedEngineLoad.value > 90 ? 'bg-red-500' : 'bg-emerald-500'
+)
+
+const brakeAggressionTextClass = computed(() =>
+  normalizedBrakeAggression.value > 85 ? 'text-orange-400' : 'text-white'
+)
+
+const brakeAggressionBarClass = computed(() =>
+  normalizedBrakeAggression.value > 90 ? 'bg-red-500' : 'bg-emerald-500'
+)
 </script>
 
 <template>
@@ -108,16 +124,36 @@ const normalizedBrakeAggression = computed(() =>
         <div class="text-[9px] font-bold uppercase tracking-widest text-gray-500">
           Engine Load
         </div>
-        <div class="text-sm font-black tabular-nums text-white">
+        <div
+          class="text-sm font-black tabular-nums transition-colors duration-300"
+          :class="engineLoadTextClass"
+        >
           {{ Math.round(normalizedEngineLoad) }}%
+        </div>
+        <div class="mt-1 h-1 w-full overflow-hidden rounded-full bg-gray-800">
+          <div
+            class="h-full transition-all duration-300"
+            :class="engineLoadBarClass"
+            :style="{ width: `${normalizedEngineLoad}%` }"
+          />
         </div>
       </div>
       <div class="rounded-md border border-white/5 bg-black/20 px-2 py-2">
         <div class="text-[9px] font-bold uppercase tracking-widest text-gray-500">
           Brake Agg.
         </div>
-        <div class="text-sm font-black tabular-nums text-white">
+        <div
+          class="text-sm font-black tabular-nums transition-colors duration-300"
+          :class="brakeAggressionTextClass"
+        >
           {{ Math.round(normalizedBrakeAggression) }}%
+        </div>
+        <div class="mt-1 h-1 w-full overflow-hidden rounded-full bg-gray-800">
+          <div
+            class="h-full transition-all duration-300"
+            :class="brakeAggressionBarClass"
+            :style="{ width: `${normalizedBrakeAggression}%` }"
+          />
         </div>
       </div>
     </div>
