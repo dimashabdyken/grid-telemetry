@@ -11,50 +11,20 @@ const props = defineProps<{
 
 const circuitPath = ref<{ x: number; y: number }[]>([])
 
-// Generate a synthetic circular track for fallback/demo mode
-const generateSyntheticTrack = (): { x: number; y: number }[] => {
-  const points: { x: number; y: number }[] = []
-  const numPoints = 500
-  const radiusX = 800
-  const radiusY = 600
-  const centerX = 0
-  const centerY = 0
-
-  for (let i = 0; i < numPoints; i++) {
-    const angle = (i / numPoints) * Math.PI * 2
-    points.push({
-      x: centerX + radiusX * Math.cos(angle),
-      y: centerY + radiusY * Math.sin(angle)
-    })
-  }
-  return points
-}
-
 onMounted(async () => {
   try {
+    // Keep attempting to fetch until successful
     const path = await getCircuitPath(9161)
-    circuitPath.value = path && path.length > 0 ? path : generateSyntheticTrack()
-  } catch {
-    circuitPath.value = generateSyntheticTrack()
+    circuitPath.value = path
+  } catch (e) {
+    console.error("Failed to load Singapore track map")
   }
 })
 
-const hasRenderableTrack = computed(() => {
-  const path = circuitPath.value
-  if (path.length < 20) {
-    return false
-  }
-
-  const xs = path.map(point => point.x)
-  const ys = path.map(point => point.y)
-  const xSpan = Math.max(...xs) - Math.min(...xs)
-  const ySpan = Math.max(...ys) - Math.min(...ys)
-
-  return xSpan > 1e-3 || ySpan > 1e-3
-})
+const hasRenderableTrack = computed(() => circuitPath.value.length > 0)
 
 const renderTrackPath = computed(() => {
-  return hasRenderableTrack.value ? circuitPath.value : generateSyntheticTrack()
+  return circuitPath.value
 })
 
 const viewBox = computed(() => {
@@ -96,6 +66,7 @@ const carPoint = computed(() => {
     <h2 class="absolute top-6 left-6 text-sm text-gray-400 uppercase tracking-widest font-bold z-10">Track Map</h2>
     
     <svg
+      v-if="hasRenderableTrack"
       :viewBox="viewBox"
       preserveAspectRatio="xMidYMid meet"
       class="w-full h-full transform -scale-y-100 flex-1 mt-4"
@@ -132,5 +103,8 @@ const carPoint = computed(() => {
         class="drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
       />
     </svg>
+    <div v-else class="flex flex-col items-center justify-center h-full text-gray-500">
+      <p class="text-xs font-bold uppercase tracking-widest">Loading Track Geometry...</p>
+    </div>
   </div>
 </template>
