@@ -106,100 +106,91 @@ const transStressTextClass = computed(() =>
 const transStressBarClass = computed(() =>
   normalizedTransStress.value > 90 ? 'bg-red-500' : 'bg-blue-500'
 )
+
+const metrics = computed(() => [
+  {
+    label: 'ENG',
+    value: normalizedEngineLoad.value,
+    textClass: engineLoadTextClass.value,
+    barClass: engineLoadBarClass.value
+  },
+  {
+    label: 'BRK',
+    value: normalizedBrakeAggression.value,
+    textClass: brakeAggressionTextClass.value,
+    barClass: brakeAggressionBarClass.value
+  },
+  {
+    label: 'TRN',
+    value: normalizedTransStress.value,
+    textClass: transStressTextClass.value,
+    barClass: transStressBarClass.value
+  }
+])
 </script>
 
 <template>
-  <div class="flex flex-col items-center gap-3">
-    <div
-      class="relative flex items-center justify-center w-32 h-32"
-      :class="pulseClass"
-    >
-      <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100">
-        <circle
-          cx="50"
-          cy="50"
-          r="40"
-          stroke="currentColor"
-          stroke-width="8"
-          fill="transparent"
-          class="text-[#15151e]"
-        />
-        <circle
-          cx="50"
-          cy="50"
-          r="40"
-          stroke="currentColor"
-          stroke-width="8"
-          fill="transparent"
-          stroke-linecap="round"
-          :stroke-dasharray="circumference"
-          :stroke-dashoffset="strokeDashoffset"
-          :class="[colorClass, 'transition-all duration-500 ease-in-out']"
-        />
-      </svg>
+  <div class="flex h-full min-h-[220px] w-full flex-col">
+    <div class="flex min-h-0 flex-1 flex-col items-center justify-center">
+      <div
+        class="relative flex h-32 w-32 shrink-0 items-center justify-center"
+        :class="pulseClass"
+      >
+        <svg class="h-full w-full -rotate-90" viewBox="0 0 100 100">
+          <circle
+            cx="50"
+            cy="50"
+            r="40"
+            stroke="currentColor"
+            stroke-width="8"
+            fill="transparent"
+            class="text-[#15151e]"
+          />
+          <circle
+            cx="50"
+            cy="50"
+            r="40"
+            stroke="currentColor"
+            stroke-width="8"
+            fill="transparent"
+            stroke-linecap="round"
+            :stroke-dasharray="circumference"
+            :stroke-dashoffset="strokeDashoffset"
+            :class="[colorClass, 'transition-all duration-500 ease-in-out']"
+          />
+        </svg>
 
-      <div class="absolute inset-0 flex flex-col items-center justify-center">
-        <div class="text-4xl font-black text-white tabular-nums tracking-tighter">
-          {{ Math.round(normalizedScore) }}
-        </div>
-        <div class="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-bold">
-          HEALTH
+        <div class="absolute inset-0 flex flex-col items-center justify-center">
+          <div class="text-4xl font-black text-white tabular-nums tracking-tighter">
+            {{ Math.round(normalizedScore) }}
+          </div>
+          <div class="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-bold">
+            HEALTH
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="mt-1 grid w-full grid-cols-3 gap-2 text-center">
-      <div class="flex flex-col items-center rounded-md border border-white/5 bg-black/20 px-2 py-2">
-        <div class="text-[9px] font-bold uppercase tracking-widest text-gray-500">
-          ENG
-        </div>
-        <div
-          class="text-sm font-black tabular-nums transition-colors duration-300"
-          :class="engineLoadTextClass"
+    <div class="mt-4 grid w-full shrink-0 grid-cols-3 gap-2 border-t border-white/5 pt-4 text-center">
+      <div
+        v-for="metric in metrics"
+        :key="metric.label"
+        class="flex h-12 min-w-0 flex-col items-center justify-start"
+      >
+        <span class="text-[9px] font-bold uppercase text-gray-500">
+          {{ metric.label }}
+        </span>
+        <span
+          class="text-sm font-black tabular-nums leading-5 transition-colors duration-300"
+          :class="metric.textClass"
         >
-          {{ Math.round(normalizedEngineLoad) }}%
-        </div>
-        <div class="mt-1 h-1 w-full overflow-hidden rounded-full bg-gray-800">
+          {{ Math.round(metric.value) }}%
+        </span>
+        <div class="mt-1 h-1 w-full overflow-hidden rounded-full bg-gray-700">
           <div
             class="h-full transition-all duration-300"
-            :class="engineLoadBarClass"
-            :style="{ width: `${normalizedEngineLoad}%` }"
-          />
-        </div>
-      </div>
-      <div class="flex flex-col items-center rounded-md border border-white/5 bg-black/20 px-2 py-2">
-        <div class="text-[9px] font-bold uppercase tracking-widest text-gray-500">
-          BRK
-        </div>
-        <div
-          class="text-sm font-black tabular-nums transition-colors duration-300"
-          :class="brakeAggressionTextClass"
-        >
-          {{ Math.round(normalizedBrakeAggression) }}%
-        </div>
-        <div class="mt-1 h-1 w-full overflow-hidden rounded-full bg-gray-800">
-          <div
-            class="h-full transition-all duration-300"
-            :class="brakeAggressionBarClass"
-            :style="{ width: `${normalizedBrakeAggression}%` }"
-          />
-        </div>
-      </div>
-      <div class="flex flex-col items-center rounded-md border border-white/5 bg-black/20 px-2 py-2">
-        <div class="text-[9px] font-bold uppercase tracking-widest text-gray-500">
-          TRN
-        </div>
-        <div
-          class="text-sm font-black tabular-nums transition-colors duration-300"
-          :class="transStressTextClass"
-        >
-          {{ Math.round(normalizedTransStress) }}%
-        </div>
-        <div class="mt-1 h-1 w-full overflow-hidden rounded-full bg-gray-800">
-          <div
-            class="h-full transition-all duration-300"
-            :class="transStressBarClass"
-            :style="{ width: `${normalizedTransStress}%` }"
+            :class="metric.barClass"
+            :style="{ width: `${metric.value}%` }"
           />
         </div>
       </div>
