@@ -172,6 +172,27 @@ def _process_record_sync(
     health = compute_vehicle_health(recent_records)
 
     record_dict = record.to_dict() if hasattr(record, "to_dict") else dict(record)
+    rpm = _to_float(record_dict.get("RPM", record_dict.get("rpm")))
+    throttle = _to_float(record_dict.get("Throttle", record_dict.get("throttle")))
+    brake = _to_float(record_dict.get("Brake", record_dict.get("brake")))
+    speed = _to_float(record_dict.get("Speed", record_dict.get("speed")))
+    gear = _to_int(record_dict.get("nGear", record_dict.get("n_gear")))
+
+    # 1. Engine Load: % of RPM range * Throttle percentage.
+    engine_load = (rpm / 15000) * (throttle / 100) * 100
+
+    # 2. Brake Aggression: Intensity of braking relative to current speed.
+    brake_aggression = brake if speed > 50 else 0
+
+    # 3. Transmission Stress: Simulated index based on gear changes and high RPM.
+    trans_stress = 0
+    if gear > 0 and rpm > 13000:
+        trans_stress = 80
+
+    health.setdefault("snapshot", {})
+    health["snapshot"]["engine_load"] = round(engine_load, 1)
+    health["snapshot"]["brake_agg"] = round(brake_aggression, 1)
+    health["snapshot"]["trans_stress"] = trans_stress
 
     # Normalize values for JSON-safe output.
     for key, value in record_dict.items():
