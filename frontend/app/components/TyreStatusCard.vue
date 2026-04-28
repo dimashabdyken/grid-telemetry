@@ -27,7 +27,7 @@ const colorClass = computed(() => {
 </script>
 
 <template>
-  <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg">
+  <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg h-full">
     <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold">
       Tyre Status
     </h2>

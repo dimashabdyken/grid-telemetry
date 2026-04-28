@@ -7,7 +7,7 @@ defineProps<{
 </script>
 
 <template>
-  <div class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg relative overflow-hidden">
+  <div class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg relative overflow-hidden h-full">
     <div
       class="absolute top-0 left-0 w-1 h-full"
       :style="{ backgroundColor: '#' + (driver?.team_colour || 'ffffff') }"
