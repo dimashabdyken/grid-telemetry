@@ -91,8 +91,7 @@
               <HealthScoreRing
                 :score="score"
                 :severity="highestSeverity || 'NORMAL'"
-                :engine-load="currentHealth?.snapshot?.engine_load ?? 0"
-                :brake-aggression="currentHealth?.snapshot?.brake_aggression ?? 0"
+                :current-health="currentHealth"
               />
             </div>
           </section>

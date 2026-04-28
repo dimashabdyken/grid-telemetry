@@ -3,17 +3,26 @@ import { computed } from 'vue'
 
 type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'NORMAL'
 
+type HealthSnapshot = {
+  engine_load?: number
+  brake_agg?: number
+  brake_aggression?: number
+  trans_stress?: number
+}
+
+type CurrentHealth = {
+  snapshot?: HealthSnapshot
+}
+
 const props = withDefaults(
   defineProps<{
     score: number
     severity?: Severity
-    engineLoad?: number
-    brakeAggression?: number
+    currentHealth?: CurrentHealth | null
   }>(),
   {
     severity: 'NORMAL',
-    engineLoad: 0,
-    brakeAggression: 0
+    currentHealth: null
   }
 )
 
@@ -55,11 +64,23 @@ const pulseClass = computed(() =>
 )
 
 const normalizedEngineLoad = computed(() =>
-  Math.min(100, Math.max(0, props.engineLoad))
+  Math.min(100, Math.max(0, props.currentHealth?.snapshot?.engine_load ?? 0))
 )
 
 const normalizedBrakeAggression = computed(() =>
-  Math.min(100, Math.max(0, props.brakeAggression))
+  Math.min(
+    100,
+    Math.max(
+      0,
+      props.currentHealth?.snapshot?.brake_agg ??
+        props.currentHealth?.snapshot?.brake_aggression ??
+        0
+    )
+  )
+)
+
+const normalizedTransStress = computed(() =>
+  Math.min(100, Math.max(0, props.currentHealth?.snapshot?.trans_stress ?? 0))
 )
 
 const engineLoadTextClass = computed(() =>
@@ -76,6 +97,14 @@ const brakeAggressionTextClass = computed(() =>
 
 const brakeAggressionBarClass = computed(() =>
   normalizedBrakeAggression.value > 90 ? 'bg-red-500' : 'bg-emerald-500'
+)
+
+const transStressTextClass = computed(() =>
+  normalizedTransStress.value > 85 ? 'text-orange-400' : 'text-white'
+)
+
+const transStressBarClass = computed(() =>
+  normalizedTransStress.value > 90 ? 'bg-red-500' : 'bg-blue-500'
 )
 </script>
 
@@ -119,10 +148,10 @@ const brakeAggressionBarClass = computed(() =>
       </div>
     </div>
 
-    <div class="grid w-full grid-cols-2 gap-2 text-center">
-      <div class="rounded-md border border-white/5 bg-black/20 px-2 py-2">
+    <div class="mt-1 grid w-full grid-cols-3 gap-2 text-center">
+      <div class="flex flex-col items-center rounded-md border border-white/5 bg-black/20 px-2 py-2">
         <div class="text-[9px] font-bold uppercase tracking-widest text-gray-500">
-          Engine Load
+          ENG
         </div>
         <div
           class="text-sm font-black tabular-nums transition-colors duration-300"
@@ -138,9 +167,9 @@ const brakeAggressionBarClass = computed(() =>
           />
         </div>
       </div>
-      <div class="rounded-md border border-white/5 bg-black/20 px-2 py-2">
+      <div class="flex flex-col items-center rounded-md border border-white/5 bg-black/20 px-2 py-2">
         <div class="text-[9px] font-bold uppercase tracking-widest text-gray-500">
-          Brake Agg.
+          BRK
         </div>
         <div
           class="text-sm font-black tabular-nums transition-colors duration-300"
@@ -153,6 +182,24 @@ const brakeAggressionBarClass = computed(() =>
             class="h-full transition-all duration-300"
             :class="brakeAggressionBarClass"
             :style="{ width: `${normalizedBrakeAggression}%` }"
+          />
+        </div>
+      </div>
+      <div class="flex flex-col items-center rounded-md border border-white/5 bg-black/20 px-2 py-2">
+        <div class="text-[9px] font-bold uppercase tracking-widest text-gray-500">
+          TRN
+        </div>
+        <div
+          class="text-sm font-black tabular-nums transition-colors duration-300"
+          :class="transStressTextClass"
+        >
+          {{ Math.round(normalizedTransStress) }}%
+        </div>
+        <div class="mt-1 h-1 w-full overflow-hidden rounded-full bg-gray-800">
+          <div
+            class="h-full transition-all duration-300"
+            :class="transStressBarClass"
+            :style="{ width: `${normalizedTransStress}%` }"
           />
         </div>
       </div>
