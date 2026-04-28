@@ -18,14 +18,16 @@ THROTTLE_WOT = 95
 BRAKE_HEAVY = 90
 DRS_FAULT_CODES: set[int] = set()
 DRS_RECOGNIZED_CODES = {0, 1, 8, 10, 12, 14}
+DRS_ACTIVE_CODES = {10, 12, 14}
 REPLAY_WINDOW_SIZE = 600
 REPLAY_WINDOW_STRIDE_DIVISOR = 6
+REPLAY_DRS_ACTIVE_SAMPLE_BONUS = 3.0
 TELEMETRY_FETCH_TIMEOUT_SECONDS = 2.0
 FALLBACK_RETRY_TICKS = 20
 
 
 def is_drs_active(drs_val: int) -> bool:
-    return drs_val in [1, 8, 10, 12, 14]
+    return drs_val in DRS_ACTIVE_CODES
 
 
 def _is_drs_fault(drs_val: int) -> bool:
@@ -198,27 +200,37 @@ def _select_replay_window(records: list[dict[str, Any]]) -> list[dict[str, Any]]
 
     speeds = [max(0.0, _to_float(record.get("speed"))) for record in records]
     prefix_sum = [0.0]
+    drs_active_prefix_sum = [0]
     for speed in speeds:
         prefix_sum.append(prefix_sum[-1] + speed)
+    for record in records:
+        drs_active_prefix_sum.append(
+            drs_active_prefix_sum[-1] + int(is_drs_active(_to_int(record.get("drs"))))
+        )
 
     best_start = max_start  # default to most recent for recency
     best_score = -1.0
     for start in range(0, max_start + 1, stride):
         window_total = prefix_sum[start + window_size] - prefix_sum[start]
         avg_speed = window_total / window_size
+        drs_active_count = (
+            drs_active_prefix_sum[start + window_size] - drs_active_prefix_sum[start]
+        )
         # Prefer racing-like pace but slightly bias toward newer segments.
         recency_bonus = (start / max_start) * 5.0 if max_start > 0 else 0.0
-        score = avg_speed + recency_bonus
+        drs_bonus = drs_active_count * REPLAY_DRS_ACTIVE_SAMPLE_BONUS
+        score = avg_speed + recency_bonus + drs_bonus
         if score > best_score:
             best_score = score
             best_start = start
 
     replay_slice = records[best_start : best_start + window_size]
     logging.info(
-        "Replay window selected at index %s (size=%s, avg_speed=%.1f km/h)",
+        "Replay window selected at index %s (size=%s, avg_speed=%.1f km/h, drs_active_samples=%s)",
         best_start,
         window_size,
         sum(_to_float(item.get("speed")) for item in replay_slice) / window_size,
+        sum(1 for item in replay_slice if is_drs_active(_to_int(item.get("drs")))),
     )
     return replay_slice
 

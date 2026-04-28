@@ -18,6 +18,7 @@ const smoothRpm = useTransition(rpm, {
 
 const clampedThrottle = computed(() => Math.min(Math.max(throttle.value, 0), 100))
 const clampedBrake = computed(() => Math.min(Math.max(brake.value, 0), 100))
+const isDrsOpen = computed(() => [10, 12, 14].includes(props.data?.drs ?? 0))
 
 const isLedActive = (i: number) => smoothRpm.value >= i * 1000
 
@@ -63,7 +64,7 @@ const ledColorClass = (i: number) => {
       <!-- DRS -->
       <div
         class="h-full flex items-center justify-center rounded border text-[8px] font-black uppercase tracking-widest transition-colors duration-200"
-        :class="(data?.drs !== 0 && data?.drs != null) ? 'bg-green-500/20 border-green-500 text-green-400' : 'bg-gray-800 border-gray-700 text-gray-600'"
+        :class="isDrsOpen ? 'bg-green-500/20 border-green-500 text-green-400' : 'bg-gray-800 border-gray-700 text-gray-600'"
       >
         DRS
       </div>
