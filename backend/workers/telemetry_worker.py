@@ -26,6 +26,10 @@ TELEMETRY_FETCH_TIMEOUT_SECONDS = 2.0
 FALLBACK_RETRY_TICKS = 20
 
 
+def _clamp_percentage(value: float) -> float:
+    return max(0.0, min(100.0, value))
+
+
 def is_drs_active(drs_val: int) -> bool:
     return drs_val in DRS_ACTIVE_CODES
 
@@ -66,14 +70,14 @@ def _row_to_record(row: Any, session_key: str, driver_number: int) -> dict[str, 
 def _to_float(value: Any, default: float = 0.0) -> float:
     try:
         return float(value)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return default
 
 
 def _to_optional_float(value: Any) -> float | None:
     try:
         parsed = float(value)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return None
 
     return parsed if math.isfinite(parsed) else None
@@ -82,8 +86,34 @@ def _to_optional_float(value: Any) -> float | None:
 def _to_int(value: Any, default: int = 0) -> int:
     try:
         return int(value)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return default
+
+
+def _calculate_transmission_stress(records: list[dict[str, Any]]) -> float:
+    if not records:
+        return 0.0
+
+    latest = records[-1]
+    rpm = _to_float(latest.get("RPM", latest.get("rpm")))
+    throttle = _to_float(latest.get("Throttle", latest.get("throttle")))
+    gear = _to_int(latest.get("nGear", latest.get("n_gear", latest.get("gear"))))
+
+    if gear <= 0:
+        return 0.0
+
+    rpm_stress = _clamp_percentage((rpm - 8000) / (RPM_REDLINE - 8000) * 65)
+    load_stress = 10 if throttle >= 80 else 0
+    shift_stress = 0
+    if len(records) >= 2:
+        previous = records[-2]
+        previous_gear = _to_int(
+            previous.get("nGear", previous.get("n_gear", previous.get("gear")))
+        )
+        if previous_gear > 0 and previous_gear != gear:
+            shift_stress = min(25, abs(gear - previous_gear) * 12)
+
+    return _clamp_percentage(rpm_stress + load_stress + shift_stress)
 
 
 def compute_vehicle_health(records: list[dict[str, Any]]) -> dict[str, Any]:
@@ -154,6 +184,7 @@ def compute_vehicle_health(records: list[dict[str, Any]]) -> dict[str, Any]:
         "brake": _to_float(latest.get("brake")),
         "engine_load": engine_load,
         "brake_aggression": brake_aggression,
+        "trans_stress": round(_calculate_transmission_stress(records), 1),
         "drs": _to_int(latest.get("drs")),
         "n_gear": _to_int(latest.get("n_gear")),
     }
@@ -176,7 +207,6 @@ def _process_record_sync(
     throttle = _to_float(record_dict.get("Throttle", record_dict.get("throttle")))
     brake = _to_float(record_dict.get("Brake", record_dict.get("brake")))
     speed = _to_float(record_dict.get("Speed", record_dict.get("speed")))
-    gear = _to_int(record_dict.get("nGear", record_dict.get("n_gear")))
 
     # 1. Engine Load: % of RPM range * Throttle percentage.
     engine_load = (rpm / 15000) * (throttle / 100) * 100
@@ -185,14 +215,12 @@ def _process_record_sync(
     brake_aggression = brake if speed > 50 else 0
 
     # 3. Transmission Stress: Simulated index based on gear changes and high RPM.
-    trans_stress = 0
-    if gear > 0 and rpm > 13000:
-        trans_stress = 80
+    trans_stress = _calculate_transmission_stress(recent_records)
 
     health.setdefault("snapshot", {})
     health["snapshot"]["engine_load"] = round(engine_load, 1)
     health["snapshot"]["brake_agg"] = round(brake_aggression, 1)
-    health["snapshot"]["trans_stress"] = trans_stress
+    health["snapshot"]["trans_stress"] = round(trans_stress, 1)
 
     # Normalize values for JSON-safe output.
     for key, value in record_dict.items():

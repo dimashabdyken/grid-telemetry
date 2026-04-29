@@ -54,7 +54,9 @@ export interface VehicleSnapshot {
     throttle: number
     brake: number
     engine_load?: number
+    brake_agg?: number
     brake_aggression?: number
+    trans_stress?: number
     rpm: number
     speed: number
     gear: number
