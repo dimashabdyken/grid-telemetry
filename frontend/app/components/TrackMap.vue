@@ -16,20 +16,10 @@ const circuitPath = ref<CircuitPoint[]>([])
 onMounted(async () => {
   try {
     const path = (await getCircuitPath(9161)) as any[]
-    const hasRealSectors = path.some(p => p.sector === 1 || p.sector === 2 || p.sector === 3)
-    const totalPoints = path.length
 
-    circuitPath.value = path.map((p, i) => {
-      let sec = p.sector
-      // Fallback: mathematically divide the track into 3 sectors if data is missing
-      if (!hasRealSectors) {
-        if (i < totalPoints / 3) sec = 1
-        else if (i < (totalPoints * 2) / 3) sec = 2
-        else sec = 3
-      } else if (!sec || sec === 0) {
-        sec = 1 // Safety fallback for single missing points
-      }
-      return { x: p.x, y: p.y, sector: sec }
+    circuitPath.value = path.map((p) => {
+      // Just use the real sector from backend, default to 1 if missing for safety
+      return { x: p.x, y: p.y, sector: p.sector || 1 }
     })
   } catch {
     circuitPath.value = []
@@ -67,16 +57,22 @@ const getSectorPoints = (sector: number) => {
   const pts: string[] = []
   const path = circuitPath.value
   for (let i = 0; i < path.length; i++) {
-    if (path[i].sector === sector) {
-      pts.push(`${path[i].x},${path[i].y}`)
-      // Close gaps between different sectors
-      if (i + 1 < path.length && path[i + 1].sector !== sector) {
-        pts.push(`${path[i + 1].x},${path[i + 1].y}`)
-      }
-      // Close the circuit loop
-      if (i === path.length - 1 && path[0].sector !== sector) {
-        pts.push(`${path[0].x},${path[0].y}`)
-      }
+    const point = path[i]
+    if (!point || point.sector !== sector) {
+      continue
+    }
+
+    pts.push(`${point.x},${point.y}`)
+    const nextPoint = path[i + 1]
+    const firstPoint = path[0]
+
+    // Close gaps between different sectors
+    if (nextPoint && nextPoint.sector !== sector) {
+      pts.push(`${nextPoint.x},${nextPoint.y}`)
+    }
+    // Close the circuit loop
+    if (i === path.length - 1 && firstPoint && firstPoint.sector !== sector) {
+      pts.push(`${firstPoint.x},${firstPoint.y}`)
     }
   }
   return pts.join(' ')
@@ -114,7 +110,7 @@ const carPoint = computed(() => {
         :points="fullTrackPoints"
         fill="none"
         stroke="#0a0a0f"
-        stroke-width="300"
+        stroke-width="400"
         stroke-linejoin="round"
         stroke-linecap="round"
       />

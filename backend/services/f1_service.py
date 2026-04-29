@@ -300,18 +300,22 @@ class F1Service:
                     if len(tel) > 4000:
                         tel = tel.iloc[::4]
 
-                    points = [
-                        {
-                            "x": float(row["X"]),
-                            "y": float(row["Y"]),
-                            "sector": int(row["Sector"])
-                            if pd.notna(row["Sector"])
-                            else 0,
-                        }
-                        for _, row in tel.iterrows()
-                    ]
-                    if _is_valid_track(points):
-                        return points
+                    path = []
+                    for _, row in tel.iterrows():
+                        if pd.isna(row["X"]) or pd.isna(row["Y"]):
+                            continue
+                        sector_val = (
+                            int(row["Sector"]) if not pd.isna(row["Sector"]) else 0
+                        )
+                        path.append(
+                            {
+                                "x": float(row["X"]),
+                                "y": float(row["Y"]),
+                                "sector": sector_val,
+                            }
+                        )
+                    if _is_valid_track(path):
+                        return path
             except Exception:
                 pass
 
