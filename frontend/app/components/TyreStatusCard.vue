@@ -57,7 +57,7 @@ const colorClass = computed(() => {
 </script>
 
 <template>
-  <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg h-[320px] overflow-hidden">
+  <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg h-full min-h-[320px] overflow-hidden">
     <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold">
       Tyre Status
     </h2>
@@ -82,7 +82,7 @@ const colorClass = computed(() => {
 
     <div class="w-full h-px bg-white/10 my-2"></div>
 
-    <div class="flex-1 flex flex-col justify-between pt-2">
+    <div class="flex flex-col h-full min-h-0 flex-1 justify-between pt-2">
       <div class="flex flex-col gap-2">
         <div class="flex items-center justify-between">
           <p class="text-[10px] font-bold uppercase tracking-widest text-gray-500">
@@ -102,7 +102,7 @@ const colorClass = computed(() => {
       </div>
 
       <!-- Compound Specs -->
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-2 gap-4 flex-1 content-center">
         <div class="flex flex-col bg-black/20 p-2.5 rounded-lg border border-white/5 shadow-inner">
           <span class="text-[9px] text-gray-500 uppercase font-bold tracking-wider">Opt. Temp</span>
           <span class="text-sm font-black text-white mt-1">{{ tyreData.temp }}</span>

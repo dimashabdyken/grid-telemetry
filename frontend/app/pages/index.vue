@@ -86,8 +86,8 @@
 
         <main class="relative z-10 p-6 max-w-7xl mx-auto flex flex-col gap-6">
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
-          <DriverCard :driver="driverInfo" />
-          <TyreStatusCard :tyre-status="tyreInfo" />
+          <DriverCard :driver="driverInfo" class="h-full" />
+          <TyreStatusCard :tyre-status="tyreInfo" class="h-full" />
             <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg h-full">
             <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold mb-2">System Health</h2>
             <div class="flex flex-col items-center justify-center flex-1">
