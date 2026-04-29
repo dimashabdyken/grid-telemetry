@@ -14,7 +14,7 @@ from backend.services.f1_service import f1_service
 logger = logging.getLogger(__name__)
 
 RPM_REDLINE = 14500
-THROTTLE_WOT = 95
+THROTTLE_WOT = 100
 BRAKE_HEAVY = 90
 DRS_FAULT_CODES: set[int] = set()
 DRS_RECOGNIZED_CODES = {0, 1, 8, 10, 12, 14}
@@ -66,14 +66,14 @@ def _row_to_record(row: Any, session_key: str, driver_number: int) -> dict[str, 
 def _to_float(value: Any, default: float = 0.0) -> float:
     try:
         return float(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
 
 
 def _to_optional_float(value: Any) -> float | None:
     try:
         parsed = float(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
     return parsed if math.isfinite(parsed) else None
@@ -82,7 +82,7 @@ def _to_optional_float(value: Any) -> float | None:
 def _to_int(value: Any, default: int = 0) -> int:
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
 
 
