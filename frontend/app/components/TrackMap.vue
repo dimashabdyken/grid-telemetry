@@ -9,13 +9,21 @@ const props = defineProps<{
   driverAcronym?: string
 }>()
 
-const circuitPath = ref<{ x: number; y: number }[]>([])
+type CircuitPoint = { x: number; y: number; sector: number }
+
+const circuitPath = ref<CircuitPoint[]>([])
 
 onMounted(async () => {
   try {
     // Keep attempting to fetch until successful
-    const path = await getCircuitPath(9161)
-    circuitPath.value = path
+    const path = await getCircuitPath(9161) as Array<
+      Partial<CircuitPoint> & { x: number; y: number }
+    >
+    circuitPath.value = path.map(point => ({
+      x: point.x,
+      y: point.y,
+      sector: point.sector ?? 0
+    }))
   } catch (e) {
     console.error("Failed to load Singapore track map")
   }
@@ -48,6 +56,30 @@ const circuitSvgPoints = computed(() => {
   return renderTrackPath.value.map(point => `${point.x},${point.y}`).join(' ')
 })
 
+const createSectorPoints = (sector: number) => {
+  const points = renderTrackPath.value
+
+  return points
+    .flatMap((point, index) => {
+      if (point.sector !== sector) {
+        return []
+      }
+
+      const sectorPoints = [`${point.x},${point.y}`]
+      const nextPoint = points[index + 1]
+      if (nextPoint && nextPoint.sector !== sector) {
+        sectorPoints.push(`${nextPoint.x},${nextPoint.y}`)
+      }
+
+      return sectorPoints
+    })
+    .join(' ')
+}
+
+const sector1Points = computed(() => createSectorPoints(1))
+const sector2Points = computed(() => createSectorPoints(2))
+const sector3Points = computed(() => createSectorPoints(3))
+
 const carColor = computed(() => {
   return props.teamColor ? `#${props.teamColor.replace('#', '')}` : '#ffffff'
 })
@@ -76,20 +108,17 @@ const carPoint = computed(() => {
         :points="circuitSvgPoints"
         fill="none"
         stroke="#0a0a0f"
-        stroke-width="400"
+        stroke-width="300"
         stroke-linejoin="round"
         stroke-linecap="round"
       />
 
-      <!-- 2. Inner Track (Solid Red) -->
-      <polyline
-        :points="circuitSvgPoints"
-        fill="none"
-        stroke="#e10600"
-        stroke-width="90"
-        stroke-linejoin="round"
-        stroke-linecap="round"
-      />
+      <!-- Sector 1 (Red) -->
+      <polyline :points="sector1Points" fill="none" stroke="#e10600" stroke-width="150" stroke-linejoin="round" stroke-linecap="round" />
+      <!-- Sector 2 (Cyan) -->
+      <polyline :points="sector2Points" fill="none" stroke="#00a0d6" stroke-width="150" stroke-linejoin="round" stroke-linecap="round" />
+      <!-- Sector 3 (Yellow) -->
+      <polyline :points="sector3Points" fill="none" stroke="#fff200" stroke-width="150" stroke-linejoin="round" stroke-linecap="round" />
 
       <!-- Car Dot -->
       <circle

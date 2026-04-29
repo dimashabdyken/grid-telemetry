@@ -213,21 +213,21 @@ class F1Service:
             session = self._load_session_once()
             circuit_info = session.get_circuit_info()
 
-            def _points_from_xy_source(source: Any) -> list[dict[str, float]]:
+            def _is_valid_track(points: list[dict[str, float | int]]) -> bool:
+                if len(points) < 20:
+                    return False
+
+                xs = [float(point["x"]) for point in points]
+                ys = [float(point["y"]) for point in points]
+                x_span = max(xs) - min(xs)
+                y_span = max(ys) - min(ys)
+
+                # Reject collapsed/degenerate paths (commonly all (0, 0)).
+                return x_span > 1e-3 or y_span > 1e-3
+
+            def _points_from_xy_source(source: Any) -> list[dict[str, float | int]]:
                 if source is None:
                     return []
-
-                def _is_valid_track(points: list[dict[str, float]]) -> bool:
-                    if len(points) < 20:
-                        return False
-
-                    xs = [point["x"] for point in points]
-                    ys = [point["y"] for point in points]
-                    x_span = max(xs) - min(xs)
-                    y_span = max(ys) - min(ys)
-
-                    # Reject collapsed/degenerate paths (commonly all (0, 0)).
-                    return x_span > 1e-3 or y_span > 1e-3
 
                 # Handle DataFrame-like X/Y payload.
                 if (
@@ -277,6 +277,43 @@ class F1Service:
                         return []
 
                 return []
+
+            # Prefer fastest-lap telemetry because it includes official sector data.
+            try:
+                fastest_lap = session.laps.pick_fastest()
+                tel = fastest_lap.get_telemetry()
+                if (
+                    tel is not None
+                    and not getattr(tel, "empty", True)
+                    and {"X", "Y"}.issubset(tel.columns)
+                ):
+                    if "Sector" not in tel.columns:
+                        tel = tel.copy()
+                        tel["Sector"] = pd.NA
+
+                    tel = tel[["X", "Y", "Sector"]].copy()
+                    tel["X"] = pd.to_numeric(tel["X"], errors="coerce")
+                    tel["Y"] = pd.to_numeric(tel["Y"], errors="coerce")
+                    tel = tel.dropna(subset=["X", "Y"])
+                    tel = tel[(tel["X"].abs() > 1e-6) | (tel["Y"].abs() > 1e-6)]
+                    tel = tel.drop_duplicates(subset=["X", "Y", "Sector"])
+                    if len(tel) > 4000:
+                        tel = tel.iloc[::4]
+
+                    points = [
+                        {
+                            "x": float(row["X"]),
+                            "y": float(row["Y"]),
+                            "sector": int(row["Sector"])
+                            if pd.notna(row["Sector"])
+                            else 0,
+                        }
+                        for _, row in tel.iterrows()
+                    ]
+                    if _is_valid_track(points):
+                        return points
+            except Exception:
+                pass
 
             # Prefer dense position data so the frontend can animate smoothly.
             pos_data = getattr(session, "pos_data", None)
