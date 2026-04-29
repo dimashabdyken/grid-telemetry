@@ -15,17 +15,24 @@ const circuitPath = ref<CircuitPoint[]>([])
 
 onMounted(async () => {
   try {
-    // Keep attempting to fetch until successful
-    const path = await getCircuitPath(9161) as Array<
-      Partial<CircuitPoint> & { x: number; y: number }
-    >
-    circuitPath.value = path.map(point => ({
-      x: point.x,
-      y: point.y,
-      sector: point.sector ?? 0
-    }))
-  } catch (e) {
-    console.error("Failed to load Singapore track map")
+    const path = (await getCircuitPath(9161)) as any[]
+    const hasRealSectors = path.some(p => p.sector === 1 || p.sector === 2 || p.sector === 3)
+    const totalPoints = path.length
+
+    circuitPath.value = path.map((p, i) => {
+      let sec = p.sector
+      // Fallback: mathematically divide the track into 3 sectors if data is missing
+      if (!hasRealSectors) {
+        if (i < totalPoints / 3) sec = 1
+        else if (i < (totalPoints * 2) / 3) sec = 2
+        else sec = 3
+      } else if (!sec || sec === 0) {
+        sec = 1 // Safety fallback for single missing points
+      }
+      return { x: p.x, y: p.y, sector: sec }
+    })
+  } catch {
+    circuitPath.value = []
   }
 })
 
@@ -52,33 +59,32 @@ const viewBox = computed(() => {
   return `${minX - padding} ${minY - padding} ${(maxX - minX) + padding * 2} ${(maxY - minY) + padding * 2}`
 })
 
-const circuitSvgPoints = computed(() => {
+const fullTrackPoints = computed(() => {
   return renderTrackPath.value.map(point => `${point.x},${point.y}`).join(' ')
 })
 
-const createSectorPoints = (sector: number) => {
-  const points = renderTrackPath.value
-
-  return points
-    .flatMap((point, index) => {
-      if (point.sector !== sector) {
-        return []
+const getSectorPoints = (sector: number) => {
+  const pts: string[] = []
+  const path = circuitPath.value
+  for (let i = 0; i < path.length; i++) {
+    if (path[i].sector === sector) {
+      pts.push(`${path[i].x},${path[i].y}`)
+      // Close gaps between different sectors
+      if (i + 1 < path.length && path[i + 1].sector !== sector) {
+        pts.push(`${path[i + 1].x},${path[i + 1].y}`)
       }
-
-      const sectorPoints = [`${point.x},${point.y}`]
-      const nextPoint = points[index + 1]
-      if (nextPoint && nextPoint.sector !== sector) {
-        sectorPoints.push(`${nextPoint.x},${nextPoint.y}`)
+      // Close the circuit loop
+      if (i === path.length - 1 && path[0].sector !== sector) {
+        pts.push(`${path[0].x},${path[0].y}`)
       }
-
-      return sectorPoints
-    })
-    .join(' ')
+    }
+  }
+  return pts.join(' ')
 }
 
-const sector1Points = computed(() => createSectorPoints(1))
-const sector2Points = computed(() => createSectorPoints(2))
-const sector3Points = computed(() => createSectorPoints(3))
+const sector1Points = computed(() => getSectorPoints(1))
+const sector2Points = computed(() => getSectorPoints(2))
+const sector3Points = computed(() => getSectorPoints(3))
 
 const carColor = computed(() => {
   return props.teamColor ? `#${props.teamColor.replace('#', '')}` : '#ffffff'
@@ -105,7 +111,7 @@ const carPoint = computed(() => {
     >
       <!-- 1. Outer Border (Black) -->
       <polyline
-        :points="circuitSvgPoints"
+        :points="fullTrackPoints"
         fill="none"
         stroke="#0a0a0f"
         stroke-width="300"
@@ -113,11 +119,9 @@ const carPoint = computed(() => {
         stroke-linecap="round"
       />
 
-      <!-- Sector 1 (Red) -->
+      <!-- 2. Colored Sectors -->
       <polyline :points="sector1Points" fill="none" stroke="#e10600" stroke-width="150" stroke-linejoin="round" stroke-linecap="round" />
-      <!-- Sector 2 (Cyan) -->
       <polyline :points="sector2Points" fill="none" stroke="#00a0d6" stroke-width="150" stroke-linejoin="round" stroke-linecap="round" />
-      <!-- Sector 3 (Yellow) -->
       <polyline :points="sector3Points" fill="none" stroke="#fff200" stroke-width="150" stroke-linejoin="round" stroke-linecap="round" />
 
       <!-- Car Dot -->
