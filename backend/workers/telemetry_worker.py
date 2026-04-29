@@ -4,6 +4,7 @@ import asyncio
 import logging
 import math
 from datetime import UTC, datetime
+from threading import Lock
 from typing import Any
 
 from backend.core.config import settings
@@ -24,6 +25,8 @@ REPLAY_WINDOW_STRIDE_DIVISOR = 6
 REPLAY_DRS_ACTIVE_SAMPLE_BONUS = 3.0
 TELEMETRY_FETCH_TIMEOUT_SECONDS = 2.0
 FALLBACK_RETRY_TICKS = 20
+_last_seen_warnings = set()
+_last_seen_warnings_lock = Lock()
 
 
 def _clamp_percentage(value: float) -> float:
@@ -116,14 +119,32 @@ def _calculate_transmission_stress(records: list[dict[str, Any]]) -> float:
     return _clamp_percentage(rpm_stress + load_stress + shift_stress)
 
 
+def _apply_warning_state(health: dict[str, Any], warnings: list[str]) -> dict[str, Any]:
+    current_warnings = set(warnings)
+    with _last_seen_warnings_lock:
+        new_warnings = [
+            warning for warning in warnings if warning not in _last_seen_warnings
+        ]
+        _last_seen_warnings.clear()
+        _last_seen_warnings.update(current_warnings)
+
+    health["warnings"] = warnings
+    health["active_warnings"] = warnings
+    health["new_warnings"] = new_warnings
+    return health
+
+
 def compute_vehicle_health(records: list[dict[str, Any]]) -> dict[str, Any]:
     if not records:
-        return {
-            "score": 0,
-            "warnings": ["NO_DATA"],
-            "snapshot": {},
-            "timestamp": datetime.now(UTC).isoformat(),
-        }
+        warnings = ["NO_DATA"]
+        return _apply_warning_state(
+            {
+                "score": 0,
+                "snapshot": {},
+                "timestamp": datetime.now(UTC).isoformat(),
+            },
+            warnings,
+        )
 
     warnings: list[str] = []
     deductions = 0
@@ -189,12 +210,14 @@ def compute_vehicle_health(records: list[dict[str, Any]]) -> dict[str, Any]:
         "n_gear": _to_int(latest.get("n_gear")),
     }
 
-    return {
-        "score": score,
-        "warnings": warnings,
-        "snapshot": snapshot,
-        "timestamp": datetime.now(UTC).isoformat(),
-    }
+    return _apply_warning_state(
+        {
+            "score": score,
+            "snapshot": snapshot,
+            "timestamp": datetime.now(UTC).isoformat(),
+        },
+        warnings,
+    )
 
 
 def _process_record_sync(
@@ -418,8 +441,13 @@ async def poll_telemetry(
                     recent_records,
                 )
 
-                if len(asyncio.all_tasks()) < 50:
-                    asyncio.create_task(_persist([record_dict], health))
+                new_warnings = health.get("new_warnings", [])
+                if new_warnings and len(asyncio.all_tasks()) < 50:
+                    health_for_persistence = {
+                        **health,
+                        "warnings": new_warnings,
+                    }
+                    asyncio.create_task(_persist([record_dict], health_for_persistence))
 
                 yield {
                     "type": "telemetry",
