@@ -57,7 +57,7 @@ const colorClass = computed(() => {
 </script>
 
 <template>
-  <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg h-[320px]">
+  <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg h-[320px] overflow-hidden">
     <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold">
       Tyre Status
     </h2>
@@ -82,47 +82,49 @@ const colorClass = computed(() => {
 
     <div class="w-full h-px bg-white/10 my-2"></div>
 
-    <div class="flex flex-col gap-2">
-      <div class="flex items-center justify-between">
-        <p class="text-[10px] font-bold uppercase tracking-widest text-gray-500">
-          Est. Grip
-        </p>
-        <p class="text-sm font-black tabular-nums text-white">
-          {{ Math.round(gripLevel) }}%
-        </p>
+    <div class="flex-1 flex flex-col justify-between pt-2">
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <p class="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+            Est. Grip
+          </p>
+          <p class="text-sm font-black tabular-nums text-white">
+            {{ Math.round(gripLevel) }}%
+          </p>
+        </div>
+        <div class="h-2 w-full overflow-hidden rounded-full bg-black/40">
+          <div
+            class="h-full transition-all duration-700"
+            :class="gripBarClass"
+            :style="{ width: `${gripLevel}%` }"
+          />
+        </div>
       </div>
-      <div class="h-2 w-full overflow-hidden rounded-full bg-black/40">
-        <div
-          class="h-full transition-all duration-700"
-          :class="gripBarClass"
-          :style="{ width: `${gripLevel}%` }"
-        />
-      </div>
-    </div>
 
-    <!-- Compound Specs -->
-    <div class="grid grid-cols-2 gap-4 mt-6">
-      <div class="flex flex-col bg-black/20 p-2.5 rounded-lg border border-white/5 shadow-inner">
-        <span class="text-[9px] text-gray-500 uppercase font-bold tracking-wider">Opt. Temp</span>
-        <span class="text-sm font-black text-white mt-1">{{ tyreData.temp }}</span>
+      <!-- Compound Specs -->
+      <div class="grid grid-cols-2 gap-4">
+        <div class="flex flex-col bg-black/20 p-2.5 rounded-lg border border-white/5 shadow-inner">
+          <span class="text-[9px] text-gray-500 uppercase font-bold tracking-wider">Opt. Temp</span>
+          <span class="text-sm font-black text-white mt-1">{{ tyreData.temp }}</span>
+        </div>
+        <div class="flex flex-col bg-black/20 p-2.5 rounded-lg border border-white/5 shadow-inner">
+          <span class="text-[9px] text-gray-500 uppercase font-bold tracking-wider">Degradation</span>
+          <span class="text-sm font-black text-white mt-1">{{ tyreData.deg }}</span>
+        </div>
       </div>
-      <div class="flex flex-col bg-black/20 p-2.5 rounded-lg border border-white/5 shadow-inner">
-        <span class="text-[9px] text-gray-500 uppercase font-bold tracking-wider">Degradation</span>
-        <span class="text-sm font-black text-white mt-1">{{ tyreData.deg }}</span>
-      </div>
-    </div>
 
-    <!-- Pit Window Predictor -->
-    <div
-      class="mt-4 flex items-center justify-center p-3 rounded-lg border transition-all duration-300"
-      :class="lapsRemaining <= 5 ? 'bg-red-500/20 border-red-500 animate-pulse' : 'bg-gray-800/30 border-white/5'"
-    >
-      <span
-        class="font-black tracking-widest uppercase"
-        :class="lapsRemaining <= 5 ? 'text-red-500 text-lg shadow-red-500 drop-shadow-md' : 'text-gray-400 text-xs'"
+      <!-- Pit Window Predictor -->
+      <div
+        class="flex items-center justify-center p-3 rounded-lg border transition-all duration-300"
+        :class="lapsRemaining <= 5 ? 'bg-red-500/20 border-red-500 animate-pulse' : 'bg-gray-800/30 border-white/5'"
       >
-        {{ lapsRemaining <= 5 ? 'BOX BOX BOX' : `PIT WINDOW IN ${lapsRemaining} LAPS` }}
-      </span>
+        <span
+          class="font-black tracking-widest uppercase"
+          :class="lapsRemaining <= 5 ? 'text-red-500 text-lg shadow-red-500 drop-shadow-md' : 'text-gray-400 text-xs'"
+        >
+          {{ lapsRemaining <= 5 ? 'BOX BOX BOX' : `PIT WINDOW IN ${lapsRemaining} LAPS` }}
+        </span>
+      </div>
     </div>
   </section>
 </template>
