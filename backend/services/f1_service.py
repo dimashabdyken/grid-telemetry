@@ -291,22 +291,49 @@ class F1Service:
                         tel = tel.copy()
                         tel["Sector"] = pd.NA
 
-                    tel = tel[["X", "Y", "Sector"]].copy()
+                    telemetry_cols = ["X", "Y", "Sector"]
+                    if "Distance" in tel.columns:
+                        telemetry_cols.append("Distance")
+
+                    tel = tel[telemetry_cols].copy()
                     tel["X"] = pd.to_numeric(tel["X"], errors="coerce")
                     tel["Y"] = pd.to_numeric(tel["Y"], errors="coerce")
+                    if "Distance" in tel.columns:
+                        tel["Distance"] = pd.to_numeric(
+                            tel["Distance"], errors="coerce"
+                        )
                     tel = tel.dropna(subset=["X", "Y"])
                     tel = tel[(tel["X"].abs() > 1e-6) | (tel["Y"].abs() > 1e-6)]
-                    tel = tel.drop_duplicates(subset=["X", "Y", "Sector"])
+                    tel = tel.drop_duplicates(subset=telemetry_cols)
                     if len(tel) > 4000:
                         tel = tel.iloc[::4]
 
+                    max_dist = (
+                        tel["Distance"].max()
+                        if "Distance" in tel.columns and not tel["Distance"].empty
+                        else 0
+                    )
                     path = []
                     for _, row in tel.iterrows():
                         if pd.isna(row["X"]) or pd.isna(row["Y"]):
                             continue
-                        sector_val = (
-                            int(row["Sector"]) if not pd.isna(row["Sector"]) else 0
-                        )
+
+                        sector_val = 1
+                        if not pd.isna(row["Sector"]) and row["Sector"] > 0:
+                            sector_val = int(row["Sector"])
+                        elif (
+                            max_dist > 0
+                            and "Distance" in row
+                            and not pd.isna(row["Distance"])
+                        ):
+                            dist_ratio = row["Distance"] / max_dist
+                            if dist_ratio < 0.28:
+                                sector_val = 1
+                            elif dist_ratio < 0.72:
+                                sector_val = 2
+                            else:
+                                sector_val = 3
+
                         path.append(
                             {
                                 "x": float(row["X"]),
