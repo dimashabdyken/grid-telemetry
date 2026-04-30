@@ -63,6 +63,8 @@ export interface VehicleSnapshot {
     brake_agg?: number
     brake_aggression?: number
     trans_stress?: number
+    position?: number
+    gap?: string
     rpm: number
     speed: number
     gear: number

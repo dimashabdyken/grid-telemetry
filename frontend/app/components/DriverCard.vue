@@ -4,10 +4,12 @@ import type { F1Driver } from '~/lib/types'
 
 const props = defineProps<{
   driver: F1Driver | null
+  livePosition?: number | string
+  liveGap?: string
 }>()
 
 const positionLabel = computed(() =>
-  props.driver?.position ? `P${props.driver.position}` : 'P1'
+  props.livePosition ?? props.driver?.position ?? '-'
 )
 </script>
 
@@ -48,11 +50,13 @@ const positionLabel = computed(() =>
     <div class="mt-4 grid grid-cols-2 gap-4 text-center">
       <div class="rounded bg-black/20 p-2">
         <p class="text-[9px] font-bold uppercase text-gray-500">Position</p>
-        <p class="text-lg font-black text-white">{{ positionLabel }}</p>
+        <p class="text-lg font-black text-white">P{{ positionLabel }}</p>
       </div>
       <div class="rounded bg-black/20 p-2">
         <p class="text-[9px] font-bold uppercase text-gray-500">Gap</p>
-        <p class="text-lg font-black text-white">{{ driver?.gap || 'N/A' }}</p>
+        <p class="text-lg font-black text-white">
+          {{ liveGap ?? driver?.gap ?? 'N/A' }}
+        </p>
       </div>
     </div>
   </div>

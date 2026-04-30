@@ -178,6 +178,60 @@ def _get_previous_completed_lap_time(driver_laps: Any, current_lap_number: int) 
         return "0:00.000"
 
 
+def _get_lap_position(lap: Any | None) -> int:
+    if lap is None:
+        return 0
+
+    try:
+        import pandas as pd
+
+        position = lap.get("Position")
+        if pd.isna(position):
+            return 0
+        return int(round(float(position)))
+    except Exception:  # noqa: BLE001
+        return 0
+
+
+def _format_gap_to_leader(driver_laps: Any, current_lap: Any | None) -> str:
+    if current_lap is None:
+        return "N/A"
+
+    try:
+        import pandas as pd
+
+        gap_to_leader = current_lap.get("GapToLeader")
+        if not pd.isna(gap_to_leader):
+            if hasattr(gap_to_leader, "total_seconds"):
+                return f"+{gap_to_leader.total_seconds():.3f}s"
+            return str(gap_to_leader)
+
+        position = _get_lap_position(current_lap)
+        if position == 1:
+            return "0.000s"
+
+        lap_number = current_lap.get("LapNumber")
+        driver_time = current_lap.get("Time")
+        if pd.isna(lap_number) or pd.isna(driver_time) or "Time" not in driver_laps:
+            return "N/A"
+
+        same_lap = driver_laps[driver_laps["LapNumber"] == lap_number]
+        if "Position" in same_lap.columns:
+            leader_laps = same_lap[same_lap["Position"] == 1]
+        else:
+            leader_laps = same_lap
+
+        leader_laps = leader_laps.dropna(subset=["Time"])
+        if leader_laps.empty:
+            return "N/A"
+
+        leader_time = leader_laps["Time"].min()
+        gap_seconds = (driver_time - leader_time).total_seconds()
+        return f"+{max(0.0, gap_seconds):.3f}s"
+    except Exception:  # noqa: BLE001
+        return "N/A"
+
+
 def _get_driver_lap_snapshot(
     driver_number: int,
     current_record: dict[str, Any] | None = None,
@@ -214,12 +268,21 @@ def _get_driver_lap_snapshot(
 
         lap_num = int(current_lap["LapNumber"]) if current_lap is not None else 0
         lap_time = _get_previous_completed_lap_time(driver_laps, lap_num)
+        position = _get_lap_position(current_lap)
+        gap = _format_gap_to_leader(f1_service.session.laps, current_lap)
     except Exception as exc:  # noqa: BLE001
         logger.debug("Failed to read lap snapshot: %s", exc)
         lap_num = 0
         lap_time = "0:00.000"
+        position = 0
+        gap = "N/A"
 
-    return {"lap": lap_num, "lap_time": lap_time}
+    return {
+        "lap": lap_num,
+        "lap_time": lap_time,
+        "position": position,
+        "gap": gap,
+    }
 
 
 def _inject_lap_snapshot(
