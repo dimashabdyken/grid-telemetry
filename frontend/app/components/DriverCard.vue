@@ -59,5 +59,27 @@ const positionLabel = computed(() =>
         </p>
       </div>
     </div>
+
+    <div class="mt-6 grid grid-cols-2 gap-4 border-t border-white/10 pt-4">
+      <div class="flex flex-col items-center">
+        <span class="text-[9px] font-bold uppercase tracking-widest text-gray-500">
+          Pit Stops
+        </span>
+        <span class="text-xl font-black text-white">0</span>
+      </div>
+      <div class="flex flex-col items-center">
+        <span class="text-[9px] font-bold uppercase tracking-widest text-gray-500">
+          Track Status
+        </span>
+        <span class="mt-1 text-[10px] font-bold uppercase text-[#00ff00]">
+          Track Clear
+        </span>
+      </div>
+    </div>
+
+    <div class="mt-4 flex items-center justify-between rounded-lg bg-white/5 p-3">
+      <span class="text-[10px] uppercase text-gray-400">Race Condition</span>
+      <span class="text-xs font-bold text-white">Dry</span>
+    </div>
   </div>
 </template>
