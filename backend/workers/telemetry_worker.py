@@ -232,6 +232,25 @@ def _format_gap_to_leader(driver_laps: Any, current_lap: Any | None) -> str:
         return "N/A"
 
 
+def _get_lap_tyre_status(lap: Any | None) -> dict[str, str | int]:
+    if lap is None:
+        return {"tyre_compound": "UNKNOWN", "tyre_life": 0}
+
+    try:
+        import pandas as pd
+
+        compound = lap.get("Compound")
+        tyre_life = lap.get("TyreLife")
+        return {
+            "tyre_compound": (
+                str(compound).upper() if not pd.isna(compound) else "UNKNOWN"
+            ),
+            "tyre_life": int(tyre_life) if not pd.isna(tyre_life) else 0,
+        }
+    except Exception:  # noqa: BLE001
+        return {"tyre_compound": "UNKNOWN", "tyre_life": 0}
+
+
 def _get_driver_lap_snapshot(
     driver_number: int,
     current_record: dict[str, Any] | None = None,
@@ -270,18 +289,21 @@ def _get_driver_lap_snapshot(
         lap_time = _get_previous_completed_lap_time(driver_laps, lap_num)
         position = _get_lap_position(current_lap)
         gap = _format_gap_to_leader(f1_service.session.laps, current_lap)
+        tyre_status = _get_lap_tyre_status(current_lap)
     except Exception as exc:  # noqa: BLE001
         logger.debug("Failed to read lap snapshot: %s", exc)
         lap_num = 0
         lap_time = "0:00.000"
         position = 0
         gap = "N/A"
+        tyre_status = {"tyre_compound": "UNKNOWN", "tyre_life": 0}
 
     return {
         "lap": lap_num,
         "lap_time": lap_time,
         "position": position,
         "gap": gap,
+        **tyre_status,
     }
 
 

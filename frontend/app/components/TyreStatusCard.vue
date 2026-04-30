@@ -3,7 +3,9 @@ import { computed } from 'vue'
 import type { TyreStatus } from '~/lib/api'
 
 const props = defineProps<{
-  tyreStatus: TyreStatus | null
+  tyreStatus?: TyreStatus | null
+  liveCompound?: string
+  liveLife?: number
 }>()
 
 const compoundMap: Record<string, { color: string; maxLife: number; temp: string; deg: string }> = {
@@ -15,19 +17,25 @@ const compoundMap: Record<string, { color: string; maxLife: number; temp: string
 }
 const defaultTyre = { color: '#6b7280', maxLife: 30, temp: 'N/A', deg: 'N/A' }
 
+const activeCompound = computed(() =>
+  props.liveCompound || props.tyreStatus?.compound || 'UNKNOWN'
+)
+
+const activeLife = computed(() =>
+  props.liveLife ?? props.tyreStatus?.life ?? 0
+)
+
 const tyreData = computed(() =>
-  compoundMap[props.tyreStatus?.compound?.toUpperCase() || 'UNKNOWN'] || defaultTyre
+  compoundMap[activeCompound.value.toUpperCase()] || defaultTyre
 )
 
 const gripLevel = computed(() => {
-  if (!props.tyreStatus) return 0
-  const wear = Math.min((props.tyreStatus.life / tyreData.value.maxLife) * 100, 100)
+  const wear = Math.min((activeLife.value / tyreData.value.maxLife) * 100, 100)
   return Math.max(100 - wear, 0)
 })
 
 const lapsRemaining = computed(() => {
-  if (!props.tyreStatus) return 0
-  return Math.max(0, tyreData.value.maxLife - props.tyreStatus.life)
+  return Math.max(0, tyreData.value.maxLife - activeLife.value)
 })
 
 const gripBarClass = computed(() => {
@@ -37,7 +45,7 @@ const gripBarClass = computed(() => {
 })
 
 const colorClass = computed(() => {
-  const compound = props.tyreStatus?.compound?.toUpperCase()
+  const compound = activeCompound.value.toUpperCase()
 
   switch (compound) {
     case 'SOFT':
@@ -67,15 +75,15 @@ const colorClass = computed(() => {
         class="w-16 h-16 rounded-full border-4 flex items-center justify-center font-black text-2xl"
         :class="colorClass"
       >
-        {{ tyreStatus?.compound?.charAt(0) || '?' }}
+        {{ activeCompound.charAt(0) || '?' }}
       </div>
 
       <div class="flex flex-col gap-1">
         <p class="text-xl font-black text-white uppercase">
-          {{ tyreStatus?.compound || 'Unknown' }}
+          {{ activeCompound }}
         </p>
         <p class="text-sm font-bold text-gray-400">
-          {{ tyreStatus?.life || 0 }} LAPS OLD
+          {{ activeLife }} LAPS OLD
         </p>
       </div>
     </div>

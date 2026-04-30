@@ -65,6 +65,8 @@ export interface VehicleSnapshot {
     trans_stress?: number
     position?: number
     gap?: string
+    tyre_compound?: string
+    tyre_life?: number
     rpm: number
     speed: number
     gear: number
