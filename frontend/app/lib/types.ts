@@ -20,6 +20,7 @@ export interface F1Session {
 export interface F1Driver {
     driver_number: number
     position?: number
+    gap?: string
     ers_charge?: number
     full_name?: string
     name?: string
@@ -38,6 +39,7 @@ export interface CarDataRecord {
     date: string
     driver_number: number
     position?: number
+    gap?: string
     ers_charge?: number
     speed: number
     throttle: number

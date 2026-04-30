@@ -131,16 +131,89 @@ def _apply_warning_state(health: dict[str, Any], warnings: list[str]) -> dict[st
     return health
 
 
-def _get_driver_lap_snapshot(driver_number: int) -> dict[str, Any]:
+def _get_replay_timestamp(record: dict[str, Any] | None) -> Any | None:
+    if not record:
+        return None
+
+    for key in ("_id", "date"):
+        value = record.get(key)
+        if value:
+            return value
+
+    return None
+
+
+def _format_lap_time(lap: Any | None) -> str:
+    if lap is None:
+        return "0:00.000"
+
     try:
+        import pandas as pd
+
+        lap_time = lap.get("LapTime")
+        if pd.isna(lap_time):
+            return "0:00.000"
+        return str(lap_time).split("days ")[-1]
+    except Exception:  # noqa: BLE001
+        return "0:00.000"
+
+
+def _get_previous_completed_lap_time(driver_laps: Any, current_lap_number: int) -> str:
+    if current_lap_number <= 1:
+        return "0:00.000"
+
+    try:
+        import pandas as pd
+
+        previous_laps = driver_laps[
+            pd.to_numeric(driver_laps["LapNumber"], errors="coerce")
+            < current_lap_number
+        ]
+        if "LapTime" in previous_laps.columns:
+            previous_laps = previous_laps.dropna(subset=["LapTime"])
+        if previous_laps.empty:
+            return "0:00.000"
+        return _format_lap_time(previous_laps.iloc[-1])
+    except Exception:  # noqa: BLE001
+        return "0:00.000"
+
+
+def _get_driver_lap_snapshot(
+    driver_number: int,
+    current_record: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    try:
+        import pandas as pd
+
         driver_laps = f1_service.session.laps.pick_driver(str(driver_number))
-        last_lap = driver_laps.iloc[-1] if not driver_laps.empty else None
-        lap_num = int(last_lap["LapNumber"]) if last_lap is not None else 0
-        lap_time = (
-            str(last_lap["LapTime"]).split("days ")[-1]
-            if last_lap is not None
-            else "0:00.000"
-        )
+        if driver_laps.empty:
+            return {"lap": 0, "lap_time": "0:00.000"}
+
+        current_lap = None
+        replay_timestamp = _get_replay_timestamp(current_record)
+        if replay_timestamp and "LapStartDate" in driver_laps.columns:
+            current_time = pd.to_datetime(
+                replay_timestamp,
+                errors="coerce",
+                utc=True,
+            )
+            lap_start_times = pd.to_datetime(
+                driver_laps["LapStartDate"],
+                errors="coerce",
+                utc=True,
+            )
+            if not pd.isna(current_time):
+                started_laps = driver_laps[
+                    lap_start_times.notna() & (lap_start_times <= current_time)
+                ]
+                if not started_laps.empty:
+                    current_lap = started_laps.iloc[-1]
+
+        if current_lap is None:
+            current_lap = driver_laps.iloc[-1]
+
+        lap_num = int(current_lap["LapNumber"]) if current_lap is not None else 0
+        lap_time = _get_previous_completed_lap_time(driver_laps, lap_num)
     except Exception as exc:  # noqa: BLE001
         logger.debug("Failed to read lap snapshot: %s", exc)
         lap_num = 0
@@ -149,8 +222,14 @@ def _get_driver_lap_snapshot(driver_number: int) -> dict[str, Any]:
     return {"lap": lap_num, "lap_time": lap_time}
 
 
-def _inject_lap_snapshot(health: dict[str, Any], driver_number: int) -> None:
-    health.setdefault("snapshot", {}).update(_get_driver_lap_snapshot(driver_number))
+def _inject_lap_snapshot(
+    health: dict[str, Any],
+    driver_number: int,
+    current_record: dict[str, Any] | None = None,
+) -> None:
+    health.setdefault("snapshot", {}).update(
+        _get_driver_lap_snapshot(driver_number, current_record)
+    )
 
 
 def compute_vehicle_health(records: list[dict[str, Any]]) -> dict[str, Any]:
@@ -344,7 +423,7 @@ async def poll_telemetry(
                 fallback_history = fallback_history[-10:]
 
             health = compute_vehicle_health(fallback_history)
-            _inject_lap_snapshot(health, resolved_driver)
+            _inject_lap_snapshot(health, resolved_driver, latest)
 
             yield {
                 "type": "telemetry",
@@ -420,7 +499,7 @@ async def poll_telemetry(
                     record,
                     recent_records,
                 )
-                _inject_lap_snapshot(health, resolved_driver)
+                _inject_lap_snapshot(health, resolved_driver, record_dict)
 
                 new_warnings = health.get("new_warnings", [])
                 if new_warnings and len(asyncio.all_tasks()) < 50:
