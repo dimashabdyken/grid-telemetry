@@ -129,7 +129,7 @@
         </div>
 
         <div class="w-full">
-          <WarningHistoryPanel />
+          <WarningHistoryPanel :live-warnings="warnings" />
         </div>
       </main>
     </div>

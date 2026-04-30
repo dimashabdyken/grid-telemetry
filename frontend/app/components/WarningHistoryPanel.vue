@@ -1,9 +1,29 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { getWarningsHistory, type WarningEvent } from '~/lib/api'
+
+const props = withDefaults(
+  defineProps<{
+    liveWarnings?: string[]
+  }>(),
+  {
+    liveWarnings: () => []
+  }
+)
 
 const events = ref<WarningEvent[]>([])
 const loading = ref(true)
+let refreshTimer: ReturnType<typeof setInterval> | null = null
+
+const severityByCode: Record<string, string> = {
+  NO_DATA: 'CRITICAL',
+  RPM_REDLINE_BREACH: 'HIGH',
+  STUCK_THROTTLE_STATIONARY: 'HIGH',
+  HEAVY_BRAKE_EVENT: 'MEDIUM',
+  DRS_FAULT: 'MEDIUM',
+  SUSTAINED_WOT: 'LOW',
+  POSSIBLE_MISSED_GEAR: 'LOW'
+}
 
 const formatTime = (value: string) => {
   const date = new Date(value)
@@ -23,7 +43,7 @@ const severityClass = (severity: string) => {
   return 'text-gray-400'
 }
 
-onMounted(async () => {
+const loadEvents = async () => {
   try {
     const data = await getWarningsHistory(9161, 20)
     events.value = Array.isArray(data) ? data : []
@@ -31,6 +51,30 @@ onMounted(async () => {
     events.value = []
   } finally {
     loading.value = false
+  }
+}
+
+const displayedEvents = computed(() => {
+  const liveEvents = props.liveWarnings.map((code) => ({
+    code,
+    severity: severityByCode[code] || 'LOW',
+    triggered_at: 'LIVE'
+  }))
+  const liveCodes = new Set(liveEvents.map((event) => event.code))
+  const historicalEvents = events.value.filter((event) => !liveCodes.has(event.code))
+
+  return [...liveEvents, ...historicalEvents]
+})
+
+onMounted(async () => {
+  await loadEvents()
+  refreshTimer = setInterval(loadEvents, 5000)
+})
+
+onUnmounted(() => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
   }
 })
 </script>
@@ -46,12 +90,12 @@ onMounted(async () => {
         Loading events...
       </div>
 
-      <div v-else-if="events.length === 0" class="text-sm text-gray-500 py-2">
+      <div v-else-if="displayedEvents.length === 0" class="text-sm text-gray-500 py-2">
         No warning events found.
       </div>
 
       <div
-        v-for="(event, index) in events"
+        v-for="(event, index) in displayedEvents"
         :key="`${event.code}-${event.triggered_at}-${index}`"
         class="border-b border-white/5 py-2"
       >

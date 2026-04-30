@@ -110,7 +110,7 @@ const carPoint = computed(() => {
         :points="fullTrackPoints"
         fill="none"
         stroke="#0a0a0f"
-        stroke-width="400"
+        stroke-width="460"
         stroke-linejoin="round"
         stroke-linecap="round"
       />
