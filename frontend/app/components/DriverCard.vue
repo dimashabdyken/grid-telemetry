@@ -1,18 +1,17 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { F1Driver } from '~/lib/types'
+import type { CarDataRecord, F1Driver } from '~/lib/types'
 
 const props = defineProps<{
   driver: F1Driver | null
+  data?: CarDataRecord | null
 }>()
 
 const positionLabel = computed(() =>
   props.driver?.position ? `P${props.driver.position}` : 'P1'
 )
 
-const ersCharge = computed(() =>
-  Math.min(100, Math.max(0, props.driver?.ers_charge ?? 88))
-)
+const isDrsActive = computed(() => [1, 10, 12, 14].includes(props.data?.drs ?? 0))
 </script>
 
 <template>
@@ -62,14 +61,13 @@ const ersCharge = computed(() =>
 
     <div class="mt-4">
       <div class="mb-1 flex justify-between text-[9px] font-bold uppercase text-gray-500">
-        <span>ERS Charge</span>
-        <span>{{ Math.round(ersCharge) }}%</span>
+        <span>DRS Status</span>
       </div>
-      <div class="h-2 w-full overflow-hidden rounded-full bg-gray-900">
-        <div
-          class="h-full bg-cyan-500 transition-all duration-300"
-          :style="{ width: `${ersCharge}%` }"
-        />
+      <div
+        class="flex h-6 w-full items-center justify-center rounded border text-[10px] font-black uppercase transition-colors duration-300"
+        :class="isDrsActive ? 'bg-green-500/20 border-green-500 text-green-400' : 'bg-gray-800 border-gray-700 text-gray-600'"
+      >
+        {{ isDrsActive ? 'ACTIVE' : 'INACTIVE' }}
       </div>
     </div>
   </div>
