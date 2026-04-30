@@ -8,6 +8,8 @@ type HealthSnapshot = {
   brake_agg?: number
   brake_aggression?: number
   trans_stress?: number
+  lap?: number
+  lap_time?: string
 }
 
 type CurrentHealth = {
@@ -193,6 +195,25 @@ const metrics = computed(() => [
             :style="{ width: `${metric.value}%` }"
           />
         </div>
+      </div>
+    </div>
+
+    <div class="mt-4 flex justify-between border-t border-white/10 pt-4">
+      <div class="text-center">
+        <p class="text-[9px] font-bold uppercase tracking-wider text-gray-500">
+          Current Lap
+        </p>
+        <p class="mt-1 text-sm font-black text-white">
+          {{ currentHealth?.snapshot?.lap ?? '-' }}
+        </p>
+      </div>
+      <div class="text-center">
+        <p class="text-[9px] font-bold uppercase tracking-wider text-gray-500">
+          Last Lap Time
+        </p>
+        <p class="mt-1 text-sm font-black tabular-nums text-white">
+          {{ currentHealth?.snapshot?.lap_time ?? '0:00.000' }}
+        </p>
       </div>
     </div>
   </div>
