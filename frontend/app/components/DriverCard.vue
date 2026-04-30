@@ -1,9 +1,18 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { F1Driver } from '~/lib/types'
 
-defineProps<{
+const props = defineProps<{
   driver: F1Driver | null
 }>()
+
+const positionLabel = computed(() =>
+  props.driver?.position ? `P${props.driver.position}` : 'P1'
+)
+
+const ersCharge = computed(() =>
+  Math.min(100, Math.max(0, props.driver?.ers_charge ?? 88))
+)
 </script>
 
 <template>
@@ -37,6 +46,30 @@ defineProps<{
         <p class="text-sm font-bold text-gray-400">
           {{ driver?.team_name || 'N/A' }} | #{{ driver?.driver_number || '?' }}
         </p>
+      </div>
+    </div>
+
+    <div class="mt-4 grid grid-cols-2 gap-4 text-center">
+      <div class="rounded bg-black/20 p-2">
+        <p class="text-[9px] font-bold uppercase text-gray-500">Position</p>
+        <p class="text-lg font-black text-white">{{ positionLabel }}</p>
+      </div>
+      <div class="rounded bg-black/20 p-2">
+        <p class="text-[9px] font-bold uppercase text-gray-500">Gap</p>
+        <p class="text-lg font-black text-white">-2.4s</p>
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <div class="mb-1 flex justify-between text-[9px] font-bold uppercase text-gray-500">
+        <span>ERS Charge</span>
+        <span>{{ Math.round(ersCharge) }}%</span>
+      </div>
+      <div class="h-2 w-full overflow-hidden rounded-full bg-gray-900">
+        <div
+          class="h-full bg-cyan-500 transition-all duration-300"
+          :style="{ width: `${ersCharge}%` }"
+        />
       </div>
     </div>
   </div>
