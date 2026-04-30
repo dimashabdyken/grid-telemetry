@@ -405,9 +405,6 @@ class F1Service:
         session = self._load_session_once()
         requested_driver = str(driver_number)
 
-        if hasattr(session.laps, "pick_driver"):
-            return session.laps.pick_driver(requested_driver)
-
         if hasattr(session.laps, "pick_drivers"):
             return session.laps.pick_drivers([requested_driver])
 

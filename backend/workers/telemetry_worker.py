@@ -258,7 +258,7 @@ def _get_driver_lap_snapshot(
     try:
         import pandas as pd
 
-        driver_laps = f1_service.session.laps.pick_driver(str(driver_number))
+        driver_laps = f1_service.session.laps.pick_drivers([str(driver_number)])
         if driver_laps.empty:
             return {"lap": 0, "lap_time": "0:00.000"}
 
