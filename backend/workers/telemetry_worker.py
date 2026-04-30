@@ -14,15 +14,12 @@ from backend.services.f1_service import f1_service
 
 logger = logging.getLogger(__name__)
 
-RPM_REDLINE = 14500
+RPM_REDLINE = 11500
 THROTTLE_WOT = 100
-BRAKE_HEAVY = 90
+BRAKE_HEAVY = 80
 DRS_FAULT_CODES: set[int] = set()
 DRS_RECOGNIZED_CODES = {0, 1, 8, 10, 12, 14}
 DRS_ACTIVE_CODES = {10, 12, 14}
-REPLAY_WINDOW_SIZE = 600
-REPLAY_WINDOW_STRIDE_DIVISOR = 6
-REPLAY_DRS_ACTIVE_SAMPLE_BONUS = 3.0
 TELEMETRY_FETCH_TIMEOUT_SECONDS = 2.0
 FALLBACK_RETRY_TICKS = 20
 _last_seen_warnings = set()
@@ -262,51 +259,6 @@ def _process_record_sync(
     return record_dict, health
 
 
-def _select_replay_window(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    if len(records) <= REPLAY_WINDOW_SIZE:
-        return records
-
-    window_size = REPLAY_WINDOW_SIZE
-    max_start = len(records) - window_size
-    stride = max(1, window_size // REPLAY_WINDOW_STRIDE_DIVISOR)
-
-    speeds = [max(0.0, _to_float(record.get("speed"))) for record in records]
-    prefix_sum = [0.0]
-    drs_active_prefix_sum = [0]
-    for speed in speeds:
-        prefix_sum.append(prefix_sum[-1] + speed)
-    for record in records:
-        drs_active_prefix_sum.append(
-            drs_active_prefix_sum[-1] + int(is_drs_active(_to_int(record.get("drs"))))
-        )
-
-    best_start = max_start  # default to most recent for recency
-    best_score = -1.0
-    for start in range(0, max_start + 1, stride):
-        window_total = prefix_sum[start + window_size] - prefix_sum[start]
-        avg_speed = window_total / window_size
-        drs_active_count = (
-            drs_active_prefix_sum[start + window_size] - drs_active_prefix_sum[start]
-        )
-        # Prefer racing-like pace but slightly bias toward newer segments.
-        recency_bonus = (start / max_start) * 5.0 if max_start > 0 else 0.0
-        drs_bonus = drs_active_count * REPLAY_DRS_ACTIVE_SAMPLE_BONUS
-        score = avg_speed + recency_bonus + drs_bonus
-        if score > best_score:
-            best_score = score
-            best_start = start
-
-    replay_slice = records[best_start : best_start + window_size]
-    logging.info(
-        "Replay window selected at index %s (size=%s, avg_speed=%.1f km/h, drs_active_samples=%s)",
-        best_start,
-        window_size,
-        sum(_to_float(item.get("speed")) for item in replay_slice) / window_size,
-        sum(1 for item in replay_slice if is_drs_active(_to_int(item.get("drs")))),
-    )
-    return replay_slice
-
-
 async def poll_telemetry(
     session_key: str | int | None = None,
     driver_number: int | None = 1,
@@ -401,13 +353,16 @@ async def poll_telemetry(
         for _, row in car_data.iterrows()
     ]
 
-    # Pick a representative high-pace contiguous segment for better replay realism.
-    replay_records = _select_replay_window(records)
+    if len(records) > 12000:
+        replay_records = records[6000:12000]
+    elif len(records) > 6000:
+        replay_records = records[6000:]
+    else:
+        replay_records = records
+
     record_count = len(replay_records)
     if record_count == 0:
-        logger.warning(
-            "Telemetry replay has no records after window selection; stopping stream"
-        )
+        logger.warning("Telemetry replay has no records; stopping stream")
         return
 
     async def _persist(
