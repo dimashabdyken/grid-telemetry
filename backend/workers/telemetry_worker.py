@@ -131,6 +131,28 @@ def _apply_warning_state(health: dict[str, Any], warnings: list[str]) -> dict[st
     return health
 
 
+def _get_driver_lap_snapshot(driver_number: int) -> dict[str, Any]:
+    try:
+        driver_laps = f1_service.session.laps.pick_driver(str(driver_number))
+        last_lap = driver_laps.iloc[-1] if not driver_laps.empty else None
+        lap_num = int(last_lap["LapNumber"]) if last_lap is not None else 0
+        lap_time = (
+            str(last_lap["LapTime"]).split("days ")[-1]
+            if last_lap is not None
+            else "0:00.000"
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Failed to read lap snapshot: %s", exc)
+        lap_num = 0
+        lap_time = "0:00.000"
+
+    return {"lap": lap_num, "lap_time": lap_time}
+
+
+def _inject_lap_snapshot(health: dict[str, Any], driver_number: int) -> None:
+    health.setdefault("snapshot", {}).update(_get_driver_lap_snapshot(driver_number))
+
+
 def compute_vehicle_health(records: list[dict[str, Any]]) -> dict[str, Any]:
     if not records:
         warnings = ["NO_DATA"]
@@ -321,11 +343,14 @@ async def poll_telemetry(
             if len(fallback_history) > 10:
                 fallback_history = fallback_history[-10:]
 
+            health = compute_vehicle_health(fallback_history)
+            _inject_lap_snapshot(health, resolved_driver)
+
             yield {
                 "type": "telemetry",
                 "session_key": resolved_session_key,
                 "driver_number": resolved_driver,
-                "health": compute_vehicle_health(fallback_history),
+                "health": health,
                 "new_records": 1,
                 "latest": latest,
                 "timestamp": latest.get("date"),
@@ -395,6 +420,7 @@ async def poll_telemetry(
                     record,
                     recent_records,
                 )
+                _inject_lap_snapshot(health, resolved_driver)
 
                 new_warnings = health.get("new_warnings", [])
                 if new_warnings and len(asyncio.all_tasks()) < 50:
