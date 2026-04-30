@@ -542,12 +542,13 @@ async def poll_telemetry(
         for _, row in car_data.iterrows()
     ]
 
-    if len(records) > 12000:
-        replay_records = records[6000:12000]
-    elif len(records) > 6000:
-        replay_records = records[6000:]
-    else:
-        replay_records = records
+    start_index = 0
+    for i, record in enumerate(records):
+        if _to_float(record.get("speed")) > 10 and _to_int(record.get("gear")) > 0:
+            start_index = i
+            break
+
+    replay_records = records[start_index:]
 
     record_count = len(replay_records)
     if record_count == 0:
