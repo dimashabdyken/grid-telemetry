@@ -401,6 +401,87 @@ class F1Service:
             "life": int(tyre_life),
         }
 
+    def _pick_driver_laps(self, driver_number: str) -> Any:
+        session = self._load_session_once()
+        requested_driver = str(driver_number)
+
+        if hasattr(session.laps, "pick_driver"):
+            return session.laps.pick_driver(requested_driver)
+
+        if hasattr(session.laps, "pick_drivers"):
+            return session.laps.pick_drivers([requested_driver])
+
+        return session.laps[session.laps["DriverNumber"] == requested_driver]
+
+    def get_race_context(self, driver_number: str) -> dict[str, int | str]:
+        try:
+            driver_laps = self._pick_driver_laps(driver_number)
+            if driver_laps is None or driver_laps.empty:
+                return {"position": 0, "gap": "N/A"}
+
+            completed_laps = driver_laps.dropna(subset=["LapNumber"])
+            if "LapTime" in completed_laps.columns:
+                laps_with_times = completed_laps.dropna(subset=["LapTime"])
+                if not laps_with_times.empty:
+                    completed_laps = laps_with_times
+
+            if completed_laps.empty:
+                return {"position": 0, "gap": "N/A"}
+
+            last_lap = completed_laps.iloc[-1]
+            position = 0
+            if "Position" in last_lap and not pd.isna(last_lap["Position"]):
+                position = int(round(float(last_lap["Position"])))
+
+            gap = self._format_gap_to_leader(last_lap)
+            return {"position": position, "gap": gap}
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(
+                "Failed to extract race context for driver %s: %s",
+                driver_number,
+                exc,
+            )
+            return {"position": 0, "gap": "N/A"}
+
+    def _format_gap_to_leader(self, driver_lap: Any) -> str:
+        if "GapToLeader" in driver_lap and not pd.isna(driver_lap["GapToLeader"]):
+            gap = driver_lap["GapToLeader"]
+            if hasattr(gap, "total_seconds"):
+                return f"+{gap.total_seconds():.3f}s"
+            return str(gap)
+
+        if (
+            "Position" in driver_lap
+            and not pd.isna(driver_lap["Position"])
+            and int(round(float(driver_lap["Position"]))) == 1
+        ):
+            return "0.000s"
+
+        session = self._load_session_once()
+        lap_number = driver_lap.get("LapNumber")
+        driver_time = driver_lap.get("Time")
+        if pd.isna(lap_number) or pd.isna(driver_time) or "Time" not in session.laps:
+            lap_time = driver_lap.get("LapTime")
+            return (
+                str(lap_time).split("days ")[-1]
+                if not pd.isna(lap_time)
+                else "N/A"
+            )
+
+        same_lap = session.laps[session.laps["LapNumber"] == lap_number]
+        if "Position" in same_lap.columns:
+            leader_laps = same_lap[same_lap["Position"] == 1]
+        else:
+            leader_laps = same_lap
+
+        leader_laps = leader_laps.dropna(subset=["Time"])
+        if leader_laps.empty:
+            return "N/A"
+
+        leader_time = leader_laps["Time"].min()
+        gap_seconds = (driver_time - leader_time).total_seconds()
+        return f"+{max(0.0, gap_seconds):.3f}s"
+
     def get_drivers(self) -> list[dict[str, Any]]:
         self.start_background_load()
         if self.session is None or not hasattr(self.session, "drivers"):
@@ -414,9 +495,13 @@ class F1Service:
             except Exception:
                 details = {}
 
+            race_context = self.get_race_context(drv_code)
+
             drivers.append(
                 {
                     "driver_number": int(drv_code) if str(drv_code).isdigit() else 0,
+                    "position": race_context["position"],
+                    "gap": race_context["gap"],
                     "full_name": details.get("FullName")
                     or details.get("Abbreviation")
                     or drv_code,
