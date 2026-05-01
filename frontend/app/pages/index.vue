@@ -3,6 +3,7 @@
   import { getDrivers, getSession, getTyreStatus } from '~/lib/api'
   import DriverCard from '~/components/DriverCard.vue'
   import HealthScoreRing from '~/components/HealthScoreRing.vue'
+  import CarVisualizer from '~/components/CarVisualizer.vue'
   import LightSpeedBackground from '~/components/LightSpeedBackground.vue'
   import MasterWarningPanel from '~/components/MasterWarningPanel.vue'
   import TelemetryChart from '~/components/TelemetryChart.vue'
@@ -120,6 +121,8 @@
         </div>
 
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+            <CarVisualizer class="lg:col-span-2 shadow-lg border border-white/5" />
+
             <div class="h-[320px] h-full">
               <div v-if="!latestTelemetry" class="flex flex-col items-center justify-center h-full text-gray-500 bg-[#1e1e28] rounded-xl p-4 border border-white/5 shadow-lg">
               <p class="text-lg font-bold uppercase tracking-widest">Waiting for data...</p>
