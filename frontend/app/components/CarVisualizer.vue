@@ -10,7 +10,7 @@
       <img
         src="/rb19.png"
         alt="RB19"
-        class="h-[180px] w-auto object-contain drop-shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:scale-105 transition-transform duration-500"
+        class="w-full max-h-[200px] object-contain drop-shadow-[0_0_20px_rgba(255,255,255,0.15)] hover:scale-105 transition-transform duration-500"
       />
     </div>
   </div>
