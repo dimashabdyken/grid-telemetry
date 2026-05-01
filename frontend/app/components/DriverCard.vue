@@ -6,11 +6,14 @@ const props = defineProps<{
   driver: F1Driver | null
   livePosition?: number | string
   liveGap?: string
+  livePitStops?: number | string
 }>()
 
 const positionLabel = computed(() =>
   props.livePosition ?? props.driver?.position ?? '-'
 )
+
+const pitStopsLabel = computed(() => props.livePitStops ?? 0)
 </script>
 
 <template>
@@ -65,7 +68,7 @@ const positionLabel = computed(() =>
         <span class="text-[9px] font-bold uppercase tracking-widest text-gray-500">
           Pit Stops
         </span>
-        <span class="text-xl font-black text-white">0</span>
+        <span class="text-xl font-black text-white">{{ pitStopsLabel }}</span>
       </div>
       <div class="flex flex-col items-center">
         <span class="text-[9px] font-bold uppercase tracking-widest text-gray-500">

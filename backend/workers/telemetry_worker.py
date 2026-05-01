@@ -251,6 +251,67 @@ def _get_lap_tyre_status(lap: Any | None) -> dict[str, str | int]:
         return {"tyre_compound": "UNKNOWN", "tyre_life": 0}
 
 
+def _get_lap_pit_stops(driver_laps: Any, current_lap: Any | None) -> int:
+    if current_lap is None or driver_laps is None or driver_laps.empty:
+        return 0
+
+    try:
+        import pandas as pd
+
+        relevant_laps = driver_laps
+        lap_number = current_lap.get("LapNumber")
+        if "LapNumber" in driver_laps.columns and not pd.isna(lap_number):
+            lap_numbers = pd.to_numeric(driver_laps["LapNumber"], errors="coerce")
+            relevant_laps = driver_laps[lap_numbers <= float(lap_number)]
+
+        if relevant_laps.empty:
+            return 0
+
+        if "Stint" in relevant_laps.columns:
+            stints = pd.to_numeric(relevant_laps["Stint"], errors="coerce").dropna()
+            if not stints.empty:
+                return max(0, int(stints.max()) - 1)
+
+        if "LapNumber" in relevant_laps.columns:
+            relevant_laps = relevant_laps.sort_values("LapNumber")
+
+        pit_stops = 0
+        previous_compound: str | None = None
+        previous_life: int | None = None
+        for _, lap in relevant_laps.iterrows():
+            compound_value = lap.get("Compound")
+            compound = (
+                str(compound_value).upper()
+                if compound_value is not None and not pd.isna(compound_value)
+                else None
+            )
+
+            life_value = lap.get("TyreLife")
+            tyre_life = None if pd.isna(life_value) else int(life_value)
+
+            compound_changed = (
+                compound is not None
+                and previous_compound is not None
+                and compound != previous_compound
+            )
+            life_reset = (
+                tyre_life is not None
+                and previous_life is not None
+                and tyre_life < previous_life
+            )
+            if compound_changed or life_reset:
+                pit_stops += 1
+
+            if compound is not None:
+                previous_compound = compound
+            if tyre_life is not None:
+                previous_life = tyre_life
+
+        return pit_stops
+    except Exception:  # noqa: BLE001
+        return 0
+
+
 def _get_driver_lap_snapshot(
     driver_number: int,
     current_record: dict[str, Any] | None = None,
@@ -290,6 +351,7 @@ def _get_driver_lap_snapshot(
         position = _get_lap_position(current_lap)
         gap = _format_gap_to_leader(f1_service.session.laps, current_lap)
         tyre_status = _get_lap_tyre_status(current_lap)
+        pit_stops = _get_lap_pit_stops(driver_laps, current_lap)
     except Exception as exc:  # noqa: BLE001
         logger.debug("Failed to read lap snapshot: %s", exc)
         lap_num = 0
@@ -297,12 +359,14 @@ def _get_driver_lap_snapshot(
         position = 0
         gap = "N/A"
         tyre_status = {"tyre_compound": "UNKNOWN", "tyre_life": 0}
+        pit_stops = 0
 
     return {
         "lap": lap_num,
         "lap_time": lap_time,
         "position": position,
         "gap": gap,
+        "pit_stops": pit_stops,
         **tyre_status,
     }
 

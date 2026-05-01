@@ -91,6 +91,7 @@
             :driver="driverInfo"
             :live-position="currentHealth?.snapshot?.position"
             :live-gap="currentHealth?.snapshot?.gap"
+            :live-pit-stops="currentHealth?.snapshot?.pit_stops"
             class="h-full"
           />
           <TyreStatusCard
