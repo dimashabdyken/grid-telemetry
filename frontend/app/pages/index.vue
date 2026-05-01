@@ -1,6 +1,7 @@
   <script setup lang="ts">
   import { onMounted, onUnmounted, ref } from 'vue'
   import { getDrivers, getSession, getTyreStatus } from '~/lib/api'
+  import CarVisualizer from '~/components/CarVisualizer.vue'
   import DriverCard from '~/components/DriverCard.vue'
   import HealthScoreRing from '~/components/HealthScoreRing.vue'
   import LightSpeedBackground from '~/components/LightSpeedBackground.vue'
@@ -119,6 +120,8 @@
           </section>
         </div>
 
+        <CarVisualizer />
+
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="h-[320px]">
               <div v-if="!latestTelemetry" class="flex flex-col items-center justify-center h-full text-gray-500 bg-[#1e1e28] rounded-xl p-4 border border-white/5 shadow-lg">
@@ -126,7 +129,6 @@
             </div>
             <TrackMap v-else :telemetry="latestTelemetry" :team-color="driverInfo?.team_colour" :driver-acronym="driverInfo?.name_acronym" />
           </div>
-        </div>
 
           <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 shadow-lg h-[320px] flex flex-col">
             <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold mb-4">Speed Trend</h2>
@@ -137,6 +139,7 @@
               <TelemetryChart :data="smoothedTelemetry" />
             </div>
           </section>
+        </div>
 
         <div class="w-full">
           <WarningHistoryPanel :live-warnings="warnings" />
