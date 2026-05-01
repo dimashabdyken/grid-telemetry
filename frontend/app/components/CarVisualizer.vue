@@ -1,53 +1,22 @@
-<script setup lang="ts">
-import { MotionDirective, fadeVisible } from '@vueuse/motion'
-
-const vMotionFadeVisible = MotionDirective(fadeVisible, true)
-
-const carImageUrl =
-  'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/Lewis_Hamilton-Mercedes_W11_%285%29_%28cropped%29.jpg/1280px-Lewis_Hamilton-Mercedes_W11_%285%29_%28cropped%29.jpg'
-
-const specs = [
-  {
-    title: 'Intelligent Aerodynamics',
-    desc: 'Precision airflow...',
-    class: 'top-[16%] left-[6%] max-w-[150px]'
-  },
-  {
-    title: 'EQ Power',
-    desc: 'Instant torque...',
-    class: 'top-[58%] left-[42%] max-w-[130px]'
-  },
-  {
-    title: 'Dynamic Control',
-    desc: 'Adaptive grip...',
-    class: 'top-[24%] right-[7%] max-w-[140px]'
-  }
-]
-</script>
-
 <template>
-  <div class="relative w-full h-[400px] bg-[#1e1e28] rounded-xl overflow-hidden">
-    <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.08),transparent_58%)]" />
+  <div class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 shadow-lg flex flex-col h-[320px] relative overflow-hidden">
+    <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold mb-4">RB19 TECHNICAL</h2>
 
-    <img
-      :src="carImageUrl"
-      alt="Mercedes-AMG Formula 1 car"
-      class="absolute inset-0 w-full h-full object-contain p-4"
-    />
+    <!-- Car Image Wrapper -->
+    <div class="relative flex-1 flex items-center justify-center">
+      <img
+        src="https://www.pngall.com/wp-content/uploads/14/Red-Bull-RB19-Formula-1-Car-PNG-File.png"
+        alt="Red Bull RB19"
+        class="w-full h-auto object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]"
+      />
 
-    <div
-      v-for="item in specs"
-      :key="item.title"
-      v-motion-fade-visible
-      class="absolute bg-black/50 p-3 border border-white/10 backdrop-blur-md rounded-lg shadow-xl"
-      :class="item.class"
-    >
-      <h3 class="text-white font-bold text-xs uppercase">
-        {{ item.title }}
-      </h3>
-      <p class="text-[9px] text-gray-400">
-        {{ item.desc }}
-      </p>
+      <!-- Markers -->
+      <div class="absolute top-4 left-4 bg-black/60 p-2 border border-blue-500/30 rounded backdrop-blur-sm">
+        <h3 class="text-[9px] font-black text-blue-500 uppercase">Aero</h3>
+      </div>
+      <div class="absolute bottom-4 right-4 bg-black/60 p-2 border border-red-500/30 rounded backdrop-blur-sm">
+        <h3 class="text-[9px] font-black text-red-500 uppercase">Power</h3>
+      </div>
     </div>
   </div>
 </template>
