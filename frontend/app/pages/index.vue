@@ -3,7 +3,6 @@
   import { getDrivers, getSession, getTyreStatus } from '~/lib/api'
   import DriverCard from '~/components/DriverCard.vue'
   import HealthScoreRing from '~/components/HealthScoreRing.vue'
-  import CarVisualizer from '~/components/CarVisualizer.vue'
   import LightSpeedBackground from '~/components/LightSpeedBackground.vue'
   import MasterWarningPanel from '~/components/MasterWarningPanel.vue'
   import TelemetryChart from '~/components/TelemetryChart.vue'
@@ -99,7 +98,6 @@
             :live-life="currentHealth?.snapshot?.tyre_life"
             class="h-full"
           />
-          <CarVisualizer />
             <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg h-full">
             <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold mb-2">System Health</h2>
             <div class="flex flex-col items-center justify-center flex-1">
@@ -110,10 +108,7 @@
               />
             </div>
           </section>
-        </div>
-
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg h-[320px]">
+            <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg h-full">
             <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold">Telemetry Stream</h2>
             <div v-if="!latestTelemetry" class="flex flex-col items-center justify-center h-48 text-gray-500">
               <p class="text-lg font-bold uppercase tracking-widest">Waiting for data...</p>
@@ -122,7 +117,9 @@
               <TelemetryGauges :data="smoothedTelemetry" />
             </div>
           </section>
+        </div>
 
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="h-[320px]">
               <div v-if="!latestTelemetry" class="flex flex-col items-center justify-center h-full text-gray-500 bg-[#1e1e28] rounded-xl p-4 border border-white/5 shadow-lg">
               <p class="text-lg font-bold uppercase tracking-widest">Waiting for data...</p>
