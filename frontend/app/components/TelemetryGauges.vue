@@ -78,8 +78,8 @@ const ledColorClass = (i: number) => {
       </div>
       <div class="relative h-4 w-full overflow-hidden rounded bg-white/10 -skew-x-12">
         <div
-          class="h-full bg-[#00ff00] transition-all duration-100 shadow-[0_0_8px_rgba(0,255,0,0.75)]"
-          :style="{ width: clampedThrottle + '%' }"
+          class="h-full w-full bg-[#00ff00] origin-left transition-transform duration-100 shadow-[0_0_8px_rgba(0,255,0,0.75)]"
+          :style="{ transform: `scaleX(${clampedThrottle / 100})` }"
         />
       </div>
 
@@ -88,8 +88,8 @@ const ledColorClass = (i: number) => {
       </div>
       <div class="relative h-4 w-full overflow-hidden rounded bg-white/10 -skew-x-12">
         <div
-          class="h-full bg-[#e10600] transition-all duration-100 shadow-[0_0_8px_rgba(225,6,0,0.75)]"
-          :style="{ width: clampedBrake + '%' }"
+          class="h-full w-full bg-[#e10600] origin-left transition-transform duration-100 shadow-[0_0_8px_rgba(225,6,0,0.75)]"
+          :style="{ transform: `scaleX(${clampedBrake / 100})` }"
         />
       </div>
 
@@ -98,8 +98,8 @@ const ledColorClass = (i: number) => {
       </div>
       <div class="relative mt-2 h-2 w-full overflow-hidden rounded bg-white/10">
         <div
-          class="h-full bg-[#005aff] transition-all duration-100"
-          :style="{ width: Math.min((smoothRpm / 15000) * 100, 100) + '%' }"
+          class="h-full w-full bg-[#005aff] origin-left transition-transform duration-100"
+          :style="{ transform: `scaleX(${Math.min(smoothRpm / 15000, 1)})` }"
         />
       </div>
       <div class="text-right text-xs text-slate-400 tabular-nums mt-1 font-bold">

@@ -36,17 +36,19 @@ const chartOption = computed(() => ({
     trigger: 'axis',
     axisPointer: {
       type: 'line',
-      lineStyle: { color: '#e10600', width: 1 }
+      lineStyle: { color: '#ff0000', width: 1, type: 'dashed' }
     },
-    backgroundColor: 'rgba(20, 20, 30, 0.95)',
-    borderColor: '#e10600',
-    textStyle: { color: '#f8fafc' }
+    backgroundColor: '#0f0f13',
+    borderColor: '#333',
+    textStyle: { color: '#fff', fontFamily: 'monospace', fontSize: 10 },
+    padding: [4, 8],
+    borderRadius: 0
   },
   grid: {
-    top: 12,
-    right: 8,
-    bottom: 16,
-    left: 28,
+    top: 10,
+    right: 10,
+    bottom: 20,
+    left: 40,
     containLabel: true,
     borderColor: 'transparent'
   },
@@ -54,30 +56,28 @@ const chartOption = computed(() => ({
     type: 'category',
     boundaryGap: false,
     data: chartData.value.map((_, index) => index + 1),
-    axisLabel: { color: '#94a3b8', fontSize: 10 },
-    axisLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.25)' } },
-    splitLine: { show: false }
+    axisLabel: { color: '#666', fontFamily: 'monospace', fontSize: 9 },
+    axisLine: { lineStyle: { color: '#333', width: 2 } },
+    splitLine: { show: true, lineStyle: { color: '#222', type: 'dashed' } }
   },
   yAxis: {
     type: 'value',
-    axisLabel: { color: '#94a3b8', fontSize: 10 },
-    axisLine: { show: false },
-    splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.12)' } }
+    axisLabel: { color: '#666', fontFamily: 'monospace', fontSize: 9 },
+    axisLine: { show: true, lineStyle: { color: '#333', width: 2 } },
+    splitLine: { show: true, lineStyle: { color: '#222', type: 'dashed' } }
   },
   series: [
     {
       type: 'line',
-      smooth: true,
+      smooth: false,
+      step: 'end',
       showSymbol: false,
       lineStyle: {
-        width: 3,
-        color: '#00ff00'
+        width: 2,
+        color: '#00ff00' // High visibility neon green for telemetry
       },
       itemStyle: {
-        color: '#e10600'
-      },
-      areaStyle: {
-        color: 'rgba(0, 255, 0, 0.12)'
+        color: '#00ff00'
       },
       data: chartData.value
     }

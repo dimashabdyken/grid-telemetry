@@ -65,72 +65,70 @@ const colorClass = computed(() => {
 </script>
 
 <template>
-  <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg h-full min-h-[320px] overflow-hidden">
-    <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold">
+  <section class="bg-[#0f0f13] p-5 border border-[#333] flex flex-col gap-4 relative overflow-hidden h-full shadow-none rounded-none min-h-[320px]">
+    <h2 class="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-mono border-b border-[#222] pb-2">
       Tyre Status
     </h2>
 
-    <div class="flex flex-row items-center gap-6">
+    <div class="flex flex-row items-center gap-6 mt-2">
       <div
-        class="w-16 h-16 rounded-full border-4 flex items-center justify-center font-black text-2xl"
+        class="w-16 h-16 rounded-none border-2 flex items-center justify-center font-mono font-black text-2xl mix-blend-screen"
         :class="colorClass"
       >
         {{ activeCompound.charAt(0) || '?' }}
       </div>
 
       <div class="flex flex-col gap-1">
-        <p class="text-xl font-black text-white uppercase">
+        <p class="text-2xl font-black font-mono text-white uppercase tracking-tight">
           {{ activeCompound }}
         </p>
-        <p class="text-sm font-bold text-gray-400">
-          {{ activeLife }} LAPS OLD
+        <p class="text-xs font-mono text-gray-400 uppercase tracking-widest">
+          Laps: {{ activeLife }}
         </p>
       </div>
     </div>
 
-    <div class="w-full h-px bg-white/10 my-2"></div>
-
     <div class="flex flex-col h-full min-h-0 flex-1 justify-between pt-2">
-      <div class="flex flex-col gap-2">
+      <div class="flex flex-col gap-2 bg-[#1a1a24] p-3 border border-[#333]">
         <div class="flex items-center justify-between">
-          <p class="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+          <p class="text-[10px] font-mono uppercase tracking-widest text-gray-400">
             Est. Grip
           </p>
-          <p class="text-sm font-black tabular-nums text-white">
+          <p class="text-sm font-mono font-black text-white">
             {{ Math.round(gripLevel) }}%
           </p>
         </div>
-        <div class="h-2 w-full overflow-hidden rounded-full bg-black/40">
+        <div class="h-1 w-full bg-black relative top-0 left-0 overflow-hidden">
           <div
-            class="h-full transition-all duration-700"
+            class="absolute top-0 left-0 h-full transition-transform duration-700 origin-left ease-out"
             :class="gripBarClass"
-            :style="{ width: `${gripLevel}%` }"
+            :style="{ transform: `scaleX(${gripLevel / 100})` }"
           />
         </div>
       </div>
 
       <!-- Compound Specs -->
-      <div class="grid grid-cols-2 gap-4 flex-1 content-center">
-        <div class="flex flex-col bg-black/20 p-2.5 rounded-lg border border-white/5 shadow-inner">
-          <span class="text-[9px] text-gray-500 uppercase font-bold tracking-wider">Opt. Temp</span>
-          <span class="text-sm font-black text-white mt-1">{{ tyreData.temp }}</span>
+      <div class="grid grid-cols-2 gap-px bg-[#333] border border-[#333] mt-4">
+        <div class="flex flex-col bg-[#0f0f13] p-3 text-center">
+          <span class="text-[10px] text-gray-500 uppercase font-mono tracking-widest mb-1">Opt. Temp</span>
+          <span class="text-lg font-black font-mono text-white mt-1">{{ tyreData.temp }}</span>
         </div>
-        <div class="flex flex-col bg-black/20 p-2.5 rounded-lg border border-white/5 shadow-inner">
-          <span class="text-[9px] text-gray-500 uppercase font-bold tracking-wider">Degradation</span>
-          <span class="text-sm font-black text-white mt-1">{{ tyreData.deg }}</span>
+        <div class="flex flex-col bg-[#0f0f13] p-3 text-center">
+          <span class="text-[10px] text-gray-500 uppercase font-mono tracking-widest mb-1">Degradation</span>
+          <span class="text-lg font-black font-mono text-white mt-1">{{ tyreData.deg }}</span>
         </div>
       </div>
 
       <!-- Pit Window Predictor -->
       <div
-        class="flex items-center justify-center p-3 rounded-lg border transition-all duration-300"
-        :class="lapsRemaining <= 5 ? 'bg-red-500/20 border-red-500 animate-pulse' : 'bg-gray-800/30 border-white/5'"
+        class="mt-4 flex items-center justify-center p-3 border-t border-[#222]"
+        :class="lapsRemaining <= 5 ? 'bg-red-500/10 border-red-500' : 'bg-transparent border-[#222]'"
       >
         <span
-          class="font-black tracking-widest uppercase"
-          :class="lapsRemaining <= 5 ? 'text-red-500 text-lg shadow-red-500 drop-shadow-md' : 'text-gray-400 text-xs'"
+          class="font-mono font-bold tracking-[0.2em] uppercase"
+          :class="lapsRemaining <= 5 ? 'text-red-500 text-sm animate-pulse flex items-center gap-2 before:content-[\'\'] before:w-2 before:h-2 before:bg-red-500' : 'text-gray-500 text-[10px]'"
         >
-          {{ lapsRemaining <= 5 ? 'BOX BOX BOX' : `PIT WINDOW IN ${lapsRemaining} LAPS` }}
+          {{ lapsRemaining <= 5 ? 'BOX BOX BOX' : `PIT WINDOW: ${lapsRemaining} LAPS` }}
         </span>
       </div>
     </div>
