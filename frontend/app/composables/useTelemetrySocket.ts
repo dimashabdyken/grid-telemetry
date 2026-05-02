@@ -1,6 +1,6 @@
 import { onUnmounted, ref } from 'vue'
 // @ts-ignore TS2307 -- Nuxt alias resolution is unavailable when tsc runs with --ignoreConfig.
-import type { ConnectionState, WSMessage, WSTelemetryMessage } from '../lib/types'
+import type { ConnectionState, ThermalState, WSMessage, WSTelemetryMessage } from '../lib/types'
 
 interface RuntimeConfig {
     public: {
@@ -21,6 +21,7 @@ const connectionState = ref<ConnectionState>('closed')
 const latestTelemetry = ref<WSTelemetryMessage['latest'] | null>(null)
 const smoothedTelemetry = ref<WSTelemetryMessage['latest'] | null>(null)
 const currentHealth = ref<WSTelemetryMessage['health'] | null>(null)
+const thermalData = ref<ThermalState | null>(null)
 const error = ref<string | null>(null)
 const lastPing = ref<Date | null>(null)
 
@@ -97,6 +98,52 @@ const startSmoothing = () => {
 const randomInt = (min: number, max: number): number =>
     Math.floor(Math.random() * (max - min + 1)) + min
 
+const createDemoThermalData = (
+    sample: WSTelemetryMessage['latest'],
+    tick: number
+): ThermalState => {
+    const cockpitTemp = Math.min(
+        65,
+        Math.max(
+            18,
+            29
+            + tick * 0.05
+            + Math.max(0, 180 - sample.speed) * 0.018
+            + Math.max(0, sample.rpm - 9000) * 0.00055
+            + sample.brake * 0.025
+            - Math.min(5, sample.speed * 0.012)
+        )
+    )
+    const seebeckWatts = Math.min(10000, (sample.brake / 100) * (sample.speed / 360) * 10000)
+    const cognitiveLoad = Math.min(100, Math.max(0, 18 + Math.max(0, cockpitTemp - 32) * 4.2 + tick * 0.04))
+    const pcmLoad = Math.min(100, Math.max(0, tick * 0.4 + Math.max(0, cockpitTemp - 30) * 2.4))
+    const thermalAlert = cockpitTemp >= 48 || cognitiveLoad >= 85
+        ? 'critical'
+        : cockpitTemp >= 42 || cognitiveLoad >= 70
+            ? 'warning'
+            : 'none'
+    const thermalRiskLaps = pcmLoad > 70 ? Math.max(0.1, (100 - pcmLoad) / 12) : null
+    const drivers = [
+        ...(sample.speed < 140 ? ['LOW_AIRFLOW'] : []),
+        ...(cockpitTemp > 42 ? ['HIGH_COCKPIT_TEMP'] : []),
+        ...(pcmLoad > 75 ? ['PCM_NEAR_LIMIT'] : []),
+        ...(cognitiveLoad > 70 ? ['COGNITIVE_LOAD_HIGH'] : []),
+        ...(seebeckWatts >= 1500 ? ['BRAKE_HEAT_RECOVERY'] : [])
+    ]
+
+    return {
+        cockpit_temp: Number(cockpitTemp.toFixed(1)),
+        pcm_load: Number(pcmLoad.toFixed(1)),
+        seebeck_watts: Number(seebeckWatts.toFixed(1)),
+        cognitive_load: Number(cognitiveLoad.toFixed(1)),
+        thermal_alert: thermalAlert,
+        auto_mode: thermalAlert === 'critical' || pcmLoad > 95,
+        predicted_pcm_saturation_laps: thermalRiskLaps,
+        thermal_risk_laps: thermalRiskLaps,
+        drivers
+    }
+}
+
 export const enableDemoMode = () => {
     intentionalClose = true
     clearReconnectTimer()
@@ -110,6 +157,7 @@ export const enableDemoMode = () => {
     stopDemoMode()
     connectionState.value = 'open'
     error.value = null
+    let demoTick = 0
 
     demoTimer = setInterval(() => {
         const throttle = randomInt(0, 100)
@@ -127,6 +175,8 @@ export const enableDemoMode = () => {
         }
         latestTelemetry.value = sample
         smoothedTelemetry.value = sample
+        thermalData.value = createDemoThermalData(sample, demoTick)
+        demoTick += 1
     }, 150)
 }
 
@@ -185,12 +235,12 @@ export const useTelemetrySocket = () => {
                 )
                 break
             case 'telemetry':
-                console.log(`[WS] Packet: ${parsedMessage.latest._id} | Time: ${parsedMessage.latest.date}`)
                 latestTelemetry.value = {
                     ...parsedMessage.latest,
                     ...(parsedMessage.timestamp ? { timestamp: parsedMessage.timestamp } : {}),
                 }
                 currentHealth.value = parsedMessage.health
+                thermalData.value = parsedMessage.thermal ?? null
                 break
             case 'ping':
                 lastPing.value = new Date()
@@ -270,6 +320,7 @@ export const useTelemetrySocket = () => {
         latestTelemetry.value = null
         smoothedTelemetry.value = null
         currentHealth.value = null
+        thermalData.value = null
         error.value = null
         lastPing.value = null
     }
@@ -283,6 +334,7 @@ export const useTelemetrySocket = () => {
         latestTelemetry,
         smoothedTelemetry,
         currentHealth,
+        thermalData,
         error,
         lastPing,
         connect,

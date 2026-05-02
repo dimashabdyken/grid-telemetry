@@ -9,8 +9,17 @@ from typing import Any
 
 from backend.core.config import settings
 from backend.db.base import AsyncSessionLocal
-from backend.db.service import save_telemetry_batch
+from backend.db.service import save_telemetry_batch, save_warning_events
 from backend.services.f1_service import f1_service
+from backend.services.thermal_engine import (
+    DEFAULT_AMBIENT_TEMP_C,
+    calc_cockpit_temp,
+    calc_cognitive_load,
+    calc_pcm_load,
+    calc_seebeck_watts,
+    get_thermal_alert,
+)
+from backend.schemas.telemetry import ThermalState
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +31,16 @@ DRS_RECOGNIZED_CODES = {0, 1, 8, 10, 12, 14}
 DRS_ACTIVE_CODES = {10, 12, 14}
 TELEMETRY_FETCH_TIMEOUT_SECONDS = 2.0
 FALLBACK_RETRY_TICKS = 20
+THERMAL_WARNING_DEBOUNCE_TICKS = 10
+SEEBECK_ACTIVE_WATTS = 1_500
+PCM_HEAT_THRESHOLD_C = 34.0
+PCM_HEAT_GAIN_PER_TICK = 1.8
+PCM_COOLING_GAIN_PER_TICK = 1.1
+LIVE_THERMAL_WARNING_CODES = {
+    "THERMAL_WARNING",
+    "PCM_SATURATED",
+    "COGNITIVE_DEGRADED",
+}
 _last_seen_warnings = set()
 _last_seen_warnings_lock = Lock()
 
@@ -381,6 +400,216 @@ def _inject_lap_snapshot(
     )
 
 
+def _compute_thermal_state(
+    latest: dict[str, Any],
+    health: dict[str, Any],
+    previous_pcm_load: float | None = None,
+) -> dict[str, Any]:
+    snapshot = health.get("snapshot", {})
+    lap = _to_int(snapshot.get("lap"))
+    speed = _to_float(latest.get("Speed", latest.get("speed")))
+    brake = _to_float(latest.get("Brake", latest.get("brake")))
+    rpm = _to_float(latest.get("RPM", latest.get("rpm")))
+
+    cockpit_temp = calc_cockpit_temp(DEFAULT_AMBIENT_TEMP_C, lap, speed, rpm, brake)
+    seebeck_watts = calc_seebeck_watts(brake, speed)
+    cognitive_load = calc_cognitive_load(cockpit_temp, lap)
+    pcm_load = _calculate_accumulated_pcm_load(
+        previous_pcm_load,
+        calc_pcm_load(lap, cockpit_temp),
+        cockpit_temp,
+        speed,
+    )
+    predicted_pcm_saturation_laps = _predict_pcm_saturation_laps(
+        previous_pcm_load,
+        pcm_load,
+    )
+    thermal_risk_laps = _predict_thermal_risk_laps(
+        predicted_pcm_saturation_laps,
+        cognitive_load,
+    )
+    drivers = _get_thermal_drivers(
+        cockpit_temp,
+        pcm_load,
+        cognitive_load,
+        seebeck_watts,
+        speed,
+        thermal_risk_laps,
+    )
+    alert = get_thermal_alert(cockpit_temp, cognitive_load)
+    auto_mode = alert == "critical" or pcm_load > 95.0
+
+    return ThermalState(
+        cockpit_temp=cockpit_temp,
+        seebeck_watts=seebeck_watts,
+        cognitive_load=cognitive_load,
+        pcm_load=pcm_load,
+        thermal_alert=alert,
+        auto_mode=auto_mode,
+        predicted_pcm_saturation_laps=predicted_pcm_saturation_laps,
+        thermal_risk_laps=thermal_risk_laps,
+        drivers=drivers,
+    ).model_dump()
+
+
+def _calculate_accumulated_pcm_load(
+    previous_pcm_load: float | None,
+    baseline_pcm_load: float,
+    cockpit_temp: float,
+    speed: float,
+) -> float:
+    if previous_pcm_load is None:
+        return baseline_pcm_load
+
+    heat_pressure = max(0.0, cockpit_temp - PCM_HEAT_THRESHOLD_C)
+    airflow_cooling = min(1.0, max(0.0, speed) / 280.0)
+    next_pcm_load = (
+        previous_pcm_load
+        + heat_pressure * PCM_HEAT_GAIN_PER_TICK
+        - airflow_cooling * PCM_COOLING_GAIN_PER_TICK
+    )
+
+    return round(_clamp_percentage(max(next_pcm_load, baseline_pcm_load)), 1)
+
+
+def _predict_pcm_saturation_laps(
+    previous_pcm_load: float | None,
+    pcm_load: float,
+) -> float | None:
+    if previous_pcm_load is None:
+        return None
+
+    pcm_delta = pcm_load - previous_pcm_load
+    if pcm_delta <= 0:
+        return None
+
+    ticks_to_saturation = (100.0 - pcm_load) / pcm_delta
+    laps_to_saturation = ticks_to_saturation / 10.0
+    return round(max(0.1, laps_to_saturation), 1)
+
+
+def _predict_thermal_risk_laps(
+    predicted_pcm_saturation_laps: float | None,
+    cognitive_load: float,
+) -> float | None:
+    risk_predictions = []
+    if predicted_pcm_saturation_laps is not None:
+        risk_predictions.append(predicted_pcm_saturation_laps)
+
+    if cognitive_load >= 70.0:
+        risk_predictions.append(max(0.1, (85.0 - cognitive_load) / 6.0))
+
+    if not risk_predictions:
+        return None
+
+    return round(max(0.1, min(risk_predictions)), 1)
+
+
+def _get_thermal_drivers(
+    cockpit_temp: float,
+    pcm_load: float,
+    cognitive_load: float,
+    seebeck_watts: float,
+    speed: float,
+    thermal_risk_laps: float | None,
+) -> list[str]:
+    drivers = []
+
+    if speed < 140.0:
+        drivers.append("LOW_AIRFLOW")
+    if cockpit_temp > 42.0:
+        drivers.append("HIGH_COCKPIT_TEMP")
+    if pcm_load > 75.0:
+        drivers.append("PCM_NEAR_LIMIT")
+    if cognitive_load > 70.0:
+        drivers.append("COGNITIVE_LOAD_HIGH")
+    if seebeck_watts >= SEEBECK_ACTIVE_WATTS:
+        drivers.append("BRAKE_HEAT_RECOVERY")
+    if thermal_risk_laps is not None and thermal_risk_laps <= 2.0:
+        drivers.append("FORECAST_RISK_SHORT")
+
+    return drivers
+
+
+def _get_thermal_warning_codes(thermal: dict[str, Any]) -> list[str]:
+    warnings: list[str] = []
+
+    if _to_float(thermal.get("cockpit_temp")) > 45:
+        warnings.append("THERMAL_WARNING")
+
+    if _to_float(thermal.get("pcm_load")) > 90:
+        warnings.append("PCM_SATURATED")
+
+    if _to_float(thermal.get("cognitive_load")) > 75:
+        warnings.append("COGNITIVE_DEGRADED")
+
+    if _to_float(thermal.get("seebeck_watts")) >= SEEBECK_ACTIVE_WATTS:
+        warnings.append("SEEBECK_ACTIVE")
+
+    return warnings
+
+
+def _merge_live_warnings(
+    health: dict[str, Any],
+    warnings: list[str],
+) -> None:
+    if not warnings:
+        return
+
+    live_warnings = [
+        warning for warning in warnings if warning in LIVE_THERMAL_WARNING_CODES
+    ]
+    if not live_warnings:
+        return
+
+    for key in ("warnings", "active_warnings", "new_warnings"):
+        merged = list(dict.fromkeys([*health.get(key, []), *live_warnings]))
+        health[key] = merged
+
+
+def _debounce_warning_codes(
+    warnings: list[str],
+    tick: int,
+    last_fired_ticks: dict[str, int],
+) -> list[str]:
+    debounced: list[str] = []
+
+    for warning in warnings:
+        last_tick = last_fired_ticks.get(warning)
+        if (
+            last_tick is not None
+            and tick - last_tick < THERMAL_WARNING_DEBOUNCE_TICKS
+        ):
+            continue
+
+        last_fired_ticks[warning] = tick
+        debounced.append(warning)
+
+    return debounced
+
+
+async def _persist_warning_records(
+    records_to_save: list[dict[str, Any]],
+    health_data: dict[str, Any],
+) -> None:
+    try:
+        async with AsyncSessionLocal() as db:
+            await save_telemetry_batch(db, records_to_save, health_data)
+    except Exception as exc:  # noqa: BLE001
+        logging.error(f"DB save failed: {exc}")
+
+
+async def _persist_warning_events(
+    record: dict[str, Any],
+    warning_codes: list[str],
+) -> None:
+    try:
+        async with AsyncSessionLocal() as db:
+            await save_warning_events(db, record, warning_codes)
+    except Exception as exc:  # noqa: BLE001
+        logging.error(f"Warning event save failed: {exc}")
+
+
 def compute_vehicle_health(records: list[dict[str, Any]]) -> dict[str, Any]:
     if not records:
         warnings = ["NO_DATA"]
@@ -519,6 +748,9 @@ async def poll_telemetry(
 
     resolved_driver = driver_number if driver_number is not None else 1
     resolved_session_key = str(session_key)
+    thermal_warning_ticks: dict[str, int] = {}
+    thermal_tick = 0
+    pcm_load_state: float | None = None
 
     async def _load_car_data() -> Any | None:
         try:
@@ -573,12 +805,28 @@ async def poll_telemetry(
 
             health = compute_vehicle_health(fallback_history)
             _inject_lap_snapshot(health, resolved_driver, latest)
+            thermal = _compute_thermal_state(latest, health, pcm_load_state)
+            pcm_load_state = _to_float(thermal.get("pcm_load"))
+            thermal_warnings = _debounce_warning_codes(
+                _get_thermal_warning_codes(thermal),
+                thermal_tick,
+                thermal_warning_ticks,
+            )
+            _merge_live_warnings(health, thermal_warnings)
+            if thermal_warnings and len(asyncio.all_tasks()) < 50:
+                asyncio.create_task(
+                    _persist_warning_events(
+                        {**latest, "session_key": resolved_session_key},
+                        thermal_warnings,
+                    )
+                )
 
             yield {
                 "type": "telemetry",
                 "session_key": resolved_session_key,
                 "driver_number": resolved_driver,
                 "health": health,
+                "thermal": thermal,
                 "new_records": 1,
                 "latest": latest,
                 "timestamp": latest.get("date"),
@@ -596,6 +844,7 @@ async def poll_telemetry(
                     break
 
             tick += 1
+            thermal_tick += 1
             await asyncio.sleep(interval_seconds)
 
     if car_data is None or getattr(car_data, "empty", True):
@@ -619,15 +868,6 @@ async def poll_telemetry(
         logger.warning("Telemetry replay has no records; stopping stream")
         return
 
-    async def _persist(
-        records_to_save: list[dict[str, Any]], health_data: dict[str, Any]
-    ):
-        try:
-            async with AsyncSessionLocal() as db:
-                await save_telemetry_batch(db, records_to_save, health_data)
-        except Exception as exc:  # noqa: BLE001
-            logging.error(f"DB save failed: {exc}")
-
     loop_iteration = 0
     while True:
         logger.info(
@@ -650,6 +890,14 @@ async def poll_telemetry(
                     recent_records,
                 )
                 _inject_lap_snapshot(health, resolved_driver, record_dict)
+                thermal = _compute_thermal_state(record_dict, health, pcm_load_state)
+                pcm_load_state = _to_float(thermal.get("pcm_load"))
+                thermal_warnings = _debounce_warning_codes(
+                    _get_thermal_warning_codes(thermal),
+                    thermal_tick,
+                    thermal_warning_ticks,
+                )
+                _merge_live_warnings(health, thermal_warnings)
 
                 new_warnings = health.get("new_warnings", [])
                 if new_warnings and len(asyncio.all_tasks()) < 50:
@@ -657,13 +905,21 @@ async def poll_telemetry(
                         **health,
                         "warnings": new_warnings,
                     }
-                    asyncio.create_task(_persist([record_dict], health_for_persistence))
+                    asyncio.create_task(
+                        _persist_warning_records([record_dict], health_for_persistence)
+                    )
+
+                if thermal_warnings and len(asyncio.all_tasks()) < 50:
+                    asyncio.create_task(
+                        _persist_warning_events(record_dict, thermal_warnings)
+                    )
 
                 yield {
                     "type": "telemetry",
                     "session_key": resolved_session_key,
                     "driver_number": resolved_driver,
                     "health": health,
+                    "thermal": thermal,
                     "new_records": 1,
                     "latest": record_dict,
                     "timestamp": record_dict.get("date"),
@@ -672,6 +928,7 @@ async def poll_telemetry(
                 logging.error(f"Error in replay loop: {exc}")
 
             # Keep the event loop responsive and simulate stable telemetry frequency (10Hz).
+            thermal_tick += 1
             await asyncio.sleep(interval_seconds)
 
         loop_iteration += 1

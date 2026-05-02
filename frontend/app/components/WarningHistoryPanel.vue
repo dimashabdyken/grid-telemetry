@@ -43,6 +43,19 @@ const severityClass = (severity: string) => {
   return 'text-gray-400'
 }
 
+const warningCodeClass = (code: string) => {
+  if (
+    code.startsWith('THERMAL_') ||
+    code.startsWith('PCM_') ||
+    code.startsWith('COGNITIVE_') ||
+    code.startsWith('SEEBECK_')
+  ) {
+    return 'text-purple-400'
+  }
+
+  return 'text-white'
+}
+
 const loadEvents = async () => {
   try {
     const data = await getWarningsHistory(9161, 20)
@@ -100,7 +113,12 @@ onUnmounted(() => {
         class="border-b border-white/5 py-2"
       >
         <div class="flex items-center justify-between gap-3">
-          <span class="text-white font-bold text-sm">{{ event.code }}</span>
+          <span
+            class="font-bold text-sm"
+            :class="warningCodeClass(event.code)"
+          >
+            {{ event.code }}
+          </span>
           <span class="text-xs font-bold uppercase" :class="severityClass(event.severity)">
             {{ event.severity }}
           </span>

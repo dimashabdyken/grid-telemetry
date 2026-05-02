@@ -11,6 +11,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.db.models import WARNING_SEVERITY_MAP, TelemetryRecord, WarningEvent
 
 
+def _recorded_at_from_record(record: dict) -> datetime:
+    raw_id = record.get("_id")
+    if isinstance(raw_id, datetime):
+        return raw_id
+    if hasattr(raw_id, "generation_time"):
+        return raw_id.generation_time.replace(tzinfo=None)
+    return datetime.utcnow()
+
+
 async def save_telemetry_batch(
     db: AsyncSession,
     records: list[dict],
@@ -27,13 +36,7 @@ async def save_telemetry_batch(
     for record in records:
         session_key = str(record.get("session_key", ""))
         driver_number = int(record.get("driver_number", 0))
-        raw_id = record.get("_id")
-        if isinstance(raw_id, datetime):
-            recorded_at = raw_id
-        elif hasattr(raw_id, "generation_time"):
-            recorded_at = raw_id.generation_time.replace(tzinfo=None)
-        else:
-            recorded_at = datetime.utcnow()
+        recorded_at = _recorded_at_from_record(record)
 
         telemetry_rows.append(
             TelemetryRecord(
@@ -64,6 +67,34 @@ async def save_telemetry_batch(
                 )
 
     db.add_all(telemetry_rows + warning_rows)
+    await db.commit()
+
+
+async def save_warning_events(
+    db: AsyncSession,
+    record: dict,
+    warning_codes: list[str],
+) -> None:
+    """Persist warning events without creating extra telemetry rows."""
+    if not warning_codes:
+        return
+
+    session_key = str(record.get("session_key", ""))
+    driver_number = int(record.get("driver_number", 0))
+    recorded_at = _recorded_at_from_record(record)
+
+    db.add_all(
+        [
+            WarningEvent(
+                session_key=session_key,
+                driver_number=driver_number,
+                code=str(code),
+                severity=WARNING_SEVERITY_MAP.get(str(code), "LOW"),
+                triggered_at=recorded_at,
+            )
+            for code in warning_codes
+        ]
+    )
     await db.commit()
 
 

@@ -8,6 +8,7 @@
   import MasterWarningPanel from '~/components/MasterWarningPanel.vue'
   import TelemetryChart from '~/components/TelemetryChart.vue'
   import TelemetryGauges from '~/components/TelemetryGauges.vue'
+  import ThermalPanel from '~/components/ThermalPanel.vue'
   import TrackMap from '~/components/TrackMap.vue'
   import TyreStatusCard from '~/components/TyreStatusCard.vue'
   import WarningHistoryPanel from '~/components/WarningHistoryPanel.vue'
@@ -26,6 +27,7 @@
     latestTelemetry,
     smoothedTelemetry,
     currentHealth,
+    thermalData,
     error
   } = useTelemetrySocket()
 
@@ -73,20 +75,22 @@
           <span v-if="sessionInfo" class="text-gray-500 font-normal text-lg">| Singapore Grand Prix</span>
         </h1>
 
-        <div class="flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 text-xs font-bold uppercase tracking-wider">
-          <span class="h-2 w-2 rounded-full" :class="connectionState === 'open' ? 'bg-[#00ff00]' : 'bg-gray-500'" />
-          <span :class="connectionState === 'open' ? 'text-[#00ff00]' : 'text-gray-400'">
-            {{ connectionState }}
-          </span>
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 text-xs font-bold uppercase tracking-wider">
+            <span class="h-2 w-2 rounded-full" :class="connectionState === 'open' ? 'bg-[#00ff00]' : 'bg-gray-500'" />
+            <span :class="connectionState === 'open' ? 'text-[#00ff00]' : 'text-gray-400'">
+              {{ connectionState }}
+            </span>
+          </div>
         </div>
       </header>
 
-      <div class="relative z-10 max-w-7xl mx-auto px-6 pt-6">
+      <div class="relative z-10 mx-auto max-w-[1600px] px-6 pt-6 xl:px-8">
         <MasterWarningPanel :warnings="warnings" />
       </div>
 
-        <main class="relative z-10 p-6 max-w-7xl mx-auto flex flex-col gap-6">
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <main class="relative z-10 mx-auto flex max-w-[1600px] flex-col gap-6 p-6 xl:px-8">
+          <div class="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <DriverCard
             :driver="driverInfo"
             :live-position="currentHealth?.snapshot?.position"
@@ -110,6 +114,10 @@
               />
             </div>
           </section>
+          <ThermalPanel
+            :thermal-data="thermalData"
+            class="h-full"
+          />
             <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg h-full">
             <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold">Telemetry Stream</h2>
             <div v-if="!latestTelemetry" class="flex flex-col items-center justify-center h-48 text-gray-500">

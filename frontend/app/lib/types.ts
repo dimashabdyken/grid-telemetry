@@ -97,6 +97,19 @@ export interface HealthScore {
 
 export type WSMessageType = 'telemetry' | 'error' | 'ping' | 'connected'
 
+export interface ThermalState {
+    cockpit_temp: number
+    pcm_load: number
+    seebeck_watts: number
+    cognitive_load: number
+    thermal_alert: 'none' | 'warning' | 'critical'
+    alert?: 'none' | 'warning' | 'critical'
+    auto_mode?: boolean
+    predicted_pcm_saturation_laps?: number | null
+    thermal_risk_laps?: number | null
+    drivers?: string[]
+}
+
 /**
  * Represents the initial websocket connected acknowledgement payload.
  */
@@ -115,6 +128,7 @@ export interface WSTelemetryMessage {
     session_key: string
     driver_number: number
     health: HealthScore
+    thermal?: ThermalState
     new_records: number
     latest: CarDataRecord
     timestamp?: string

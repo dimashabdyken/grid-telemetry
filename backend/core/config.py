@@ -1,5 +1,8 @@
 """Application settings loaded from environment variables via pydantic-settings."""
 
+from typing import Any
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -35,6 +38,20 @@ class Settings(BaseSettings):
 
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+
+    @field_validator("DEBUG", mode="before")
+    @classmethod
+    def normalize_debug(cls, value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+
+        normalized = value.strip().lower()
+        if normalized in {"release", "prod", "production"}:
+            return False
+        if normalized in {"debug", "dev", "development"}:
+            return True
+
+        return value
 
 
 settings = Settings()
