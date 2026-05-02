@@ -98,6 +98,30 @@ const startSmoothing = () => {
 const randomInt = (min: number, max: number): number =>
     Math.floor(Math.random() * (max - min + 1)) + min
 
+const resolveBrowserWsBaseUrl = (configuredBaseUrl?: string): string => {
+    if (typeof window === 'undefined') {
+        return configuredBaseUrl || 'ws://localhost:8000'
+    }
+
+    const backendProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const browserBaseUrl = `${backendProtocol}//${window.location.hostname}:8000`
+
+    if (!configuredBaseUrl) {
+        return browserBaseUrl
+    }
+
+    try {
+        const parsed = new URL(configuredBaseUrl)
+        if (['localhost', '127.0.0.1', '0.0.0.0'].includes(parsed.hostname)) {
+            return browserBaseUrl
+        }
+    } catch {
+        return browserBaseUrl
+    }
+
+    return configuredBaseUrl
+}
+
 const createDemoThermalData = (
     sample: WSTelemetryMessage['latest'],
     tick: number
@@ -258,7 +282,7 @@ export const useTelemetrySocket = () => {
 
     const connect = (sessionKey: string | number, driverNumber: number) => {
         const config = useRuntimeConfig()
-        const WS_BASE = config.public.wsBaseUrl || 'ws://localhost:8000'
+        const WS_BASE = resolveBrowserWsBaseUrl(config.public.wsBaseUrl)
 
         stopDemoMode()
         startSmoothing()

@@ -1,6 +1,8 @@
 services:
   api:
-    image: python:3.12-slim
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: grid-telemetry-api
     ports:
       - "8000:8000"
@@ -9,12 +11,43 @@ services:
     environment:
       REDIS_URL: redis://redis:6379/0
       POSTGRES_DSN: postgresql+asyncpg://grid:telemetry@postgres:5432/grid_telemetry
+      FASTF1_CACHE_DIR: /app/cache
+      CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000","http://0.0.0.0:3000"]'
     depends_on:
-      - redis
-      - postgres
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
     volumes:
-      - ./backend:/app
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+      - ./cache:/app/cache
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read()",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - grid-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: grid-telemetry-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NUXT_PUBLIC_API_BASE_URL: http://localhost:8000
+      NUXT_PUBLIC_WS_BASE_URL: ws://localhost:8000
+    depends_on:
+      api:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - grid-network

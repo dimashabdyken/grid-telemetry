@@ -37,7 +37,11 @@ class Settings(BaseSettings):
     FASTF1_DEFAULT_SESSION: str = "R"
 
     # CORS
-    CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://0.0.0.0:3000",
+    ]
 
     @field_validator("DEBUG", mode="before")
     @classmethod

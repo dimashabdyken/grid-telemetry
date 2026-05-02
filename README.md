@@ -8,6 +8,15 @@ Grid Telemetry is a telemetry platform for ingesting, processing, and presenting
 
 ## Getting Started
 
+Start the full local stack with Docker:
+
+```bash
+docker compose up --build
+```
+
+This starts Redis, Postgres, the FastAPI backend on `http://localhost:8000`,
+and the Nuxt frontend on `http://localhost:3000`.
+
 ### Stack
 
 - FastAPI
@@ -20,5 +29,4 @@ Grid Telemetry is a telemetry platform for ingesting, processing, and presenting
 - Nuxt 3
 - Tailwind
 - shadcn-vue
-
 

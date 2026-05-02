@@ -47,12 +47,36 @@ function buildUrl(
     return queryString ? `${endpoint}?${queryString}` : endpoint
 }
 
+function resolveBrowserBaseUrl(configuredBaseUrl?: string): string {
+    if (typeof window === 'undefined') {
+        return configuredBaseUrl || 'http://localhost:8000'
+    }
+
+    const backendProtocol = window.location.protocol === 'https:' ? 'https:' : 'http:'
+    const browserBaseUrl = `${backendProtocol}//${window.location.hostname}:8000`
+
+    if (!configuredBaseUrl) {
+        return browserBaseUrl
+    }
+
+    try {
+        const parsed = new URL(configuredBaseUrl)
+        if (['localhost', '127.0.0.1', '0.0.0.0'].includes(parsed.hostname)) {
+            return browserBaseUrl
+        }
+    } catch {
+        return browserBaseUrl
+    }
+
+    return configuredBaseUrl
+}
+
 async function apiFetch<T>(
     endpoint: string,
     options?: RequestInit
 ): Promise<T> {
     const config = useRuntimeConfig()
-    const BASE_URL = config.public.apiBaseUrl || 'http://localhost:8000'
+    const BASE_URL = resolveBrowserBaseUrl(config.public.apiBaseUrl)
     const method = (options?.method || 'GET').toUpperCase()
 
     const headers = new Headers(options?.headers)
