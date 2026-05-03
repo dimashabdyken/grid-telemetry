@@ -38,23 +38,56 @@ export const useThermalState = (thermalData: Ref<ThermalState | null>) => {
         return ''
     })
 
-    const riskForecastDisplay = computed(() => {
-        const riskLaps = thermalData.value?.thermal_risk_laps
-        if (riskLaps === null || riskLaps === undefined) {
-            return 'THERMAL TREND STABLE'
+    const forecastWindowDisplay = (
+        value: number | null | undefined,
+        stableText: string,
+        imminentText: string,
+        prefix: string
+    ) => {
+        if (value === null || value === undefined) {
+            return stableText
         }
 
-        return `RISK IN ${riskLaps.toFixed(1)} LAPS`
+        if (value <= 1) {
+            return imminentText
+        }
+
+        if (value <= 2) {
+            return `${prefix} WITHIN 2 LAPS`
+        }
+
+        if (value <= 4) {
+            return `${prefix} IN 2-4 LAPS`
+        }
+
+        if (value <= 8) {
+            return `${prefix} IN 4-8 LAPS`
+        }
+
+        return stableText
+    }
+
+    const riskForecastDisplay = computed(() => {
+        return forecastWindowDisplay(
+            thermalData.value?.thermal_risk_laps,
+            'THERMAL TREND STABLE',
+            'THERMAL RISK IMMINENT',
+            'THERMAL RISK'
+        )
     })
 
     const pcmForecastDisplay = computed(() => {
-        const pcmLaps = thermalData.value?.predicted_pcm_saturation_laps
-        if (pcmLaps === null || pcmLaps === undefined) {
-            return 'PCM BUFFER STABLE'
-        }
-
-        return `PCM SATURATION IN ${pcmLaps.toFixed(1)} LAPS`
+        return forecastWindowDisplay(
+            thermalData.value?.predicted_pcm_saturation_laps,
+            'PCM BUFFER STABLE',
+            'PCM SATURATION IMMINENT',
+            'PCM SATURATION'
+        )
     })
+
+    const formatCause = (cause: string) => {
+        return cause.replaceAll('_', ' ').toUpperCase()
+    }
 
     const driverCauseDisplay = computed(() => {
         const drivers = thermalData.value?.drivers ?? []
@@ -62,7 +95,7 @@ export const useThermalState = (thermalData: Ref<ThermalState | null>) => {
             return 'CAUSE: NOMINAL THERMAL FLOW'
         }
 
-        return `CAUSE: ${drivers.slice(0, 3).join(' / ')}`
+        return `CAUSE: ${drivers.slice(0, 3).map(formatCause).join(' / ')}`
     })
 
     return {

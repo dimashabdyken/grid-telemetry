@@ -148,7 +148,7 @@
         <CarVisualizer />
 
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <section class="bg-surface border border-edge p-5 h-[320px] flex flex-col gap-3">
+            <section class="bg-surface border border-edge p-5 h-[368px] flex flex-col gap-3">
               <div class="flex items-center justify-between border-b border-edge-dark pb-2">
                 <h2 class="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-mono">
                   Track Map
@@ -169,7 +169,7 @@
               </div>
             </section>
 
-          <section class="bg-surface border border-edge p-5 h-[320px] flex flex-col gap-3">
+          <section class="bg-surface border border-edge p-5 h-[368px] flex flex-col gap-3">
             <div class="flex items-center justify-between border-b border-edge-dark pb-2">
               <h2 class="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-mono">
                 Speed Trend

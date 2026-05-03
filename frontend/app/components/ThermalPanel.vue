@@ -138,7 +138,7 @@ const metrics = computed(() => [
     <div v-else class="relative space-y-4">
       <div class="border border-edge-dark bg-surface-elevated px-3 py-2">
         <div class="text-[9px] font-mono uppercase tracking-[0.2em] text-gray-500">
-          Forecast
+          Forecast Window
         </div>
         <div class="mt-1 text-xs font-mono uppercase tracking-widest text-white">
           {{ riskForecastDisplay }}
