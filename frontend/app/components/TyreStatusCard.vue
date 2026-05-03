@@ -65,8 +65,8 @@ const colorClass = computed(() => {
 </script>
 
 <template>
-  <section class="bg-[#0f0f13] p-5 border border-[#333] flex flex-col gap-4 relative overflow-hidden h-full shadow-none rounded-none min-h-[320px]">
-    <h2 class="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-mono border-b border-[#222] pb-2">
+  <section class="bg-surface p-5 border border-edge flex flex-col gap-4 relative overflow-hidden h-full shadow-none rounded-none min-h-[320px]">
+    <h2 class="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-mono border-b border-edge-dark pb-2">
       Tyre Status
     </h2>
 
@@ -89,7 +89,7 @@ const colorClass = computed(() => {
     </div>
 
     <div class="flex flex-col h-full min-h-0 flex-1 justify-between pt-2">
-      <div class="flex flex-col gap-2 bg-[#1a1a24] p-3 border border-[#333]">
+      <div class="flex flex-col gap-2 bg-surface-elevated p-3 border border-edge">
         <div class="flex items-center justify-between">
           <p class="text-[10px] font-mono uppercase tracking-widest text-gray-400">
             Est. Grip
@@ -108,12 +108,12 @@ const colorClass = computed(() => {
       </div>
 
       <!-- Compound Specs -->
-      <div class="grid grid-cols-2 gap-px bg-[#333] border border-[#333] mt-4">
-        <div class="flex flex-col bg-[#0f0f13] p-3 text-center">
+      <div class="grid grid-cols-2 gap-px bg-edge border border-edge mt-4">
+        <div class="flex flex-col bg-surface p-3 text-center">
           <span class="text-[10px] text-gray-500 uppercase font-mono tracking-widest mb-1">Opt. Temp</span>
           <span class="text-lg font-black font-mono text-white mt-1">{{ tyreData.temp }}</span>
         </div>
-        <div class="flex flex-col bg-[#0f0f13] p-3 text-center">
+        <div class="flex flex-col bg-surface p-3 text-center">
           <span class="text-[10px] text-gray-500 uppercase font-mono tracking-widest mb-1">Degradation</span>
           <span class="text-lg font-black font-mono text-white mt-1">{{ tyreData.deg }}</span>
         </div>
@@ -121,8 +121,8 @@ const colorClass = computed(() => {
 
       <!-- Pit Window Predictor -->
       <div
-        class="mt-4 flex items-center justify-center p-3 border-t border-[#222]"
-        :class="lapsRemaining <= 5 ? 'bg-red-500/10 border-red-500' : 'bg-transparent border-[#222]'"
+        class="mt-4 flex items-center justify-center p-3 border-t border-edge-dark"
+        :class="lapsRemaining <= 5 ? 'bg-red-500/10 border-red-500' : 'bg-transparent border-edge-dark'"
       >
         <span
           class="font-mono font-bold tracking-[0.2em] uppercase"

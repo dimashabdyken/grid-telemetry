@@ -93,37 +93,42 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 shadow-lg">
-    <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold mb-4">
-      EVENT LOG
-    </h2>
+  <section class="bg-surface border border-edge p-5">
+    <div class="flex items-center justify-between border-b border-edge-dark pb-2">
+      <h2 class="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-mono">
+        Event Log
+      </h2>
+      <span class="text-[10px] font-mono uppercase tracking-wider text-gray-400">
+        {{ displayedEvents.length }} events
+      </span>
+    </div>
 
-    <div class="h-64 overflow-y-auto">
-      <div v-if="loading" class="text-sm text-gray-500 py-2">
+    <div class="h-64 overflow-y-auto pt-3">
+      <div v-if="loading" class="text-xs text-gray-500 font-mono py-2">
         Loading events...
       </div>
 
-      <div v-else-if="displayedEvents.length === 0" class="text-sm text-gray-500 py-2">
+      <div v-else-if="displayedEvents.length === 0" class="text-xs text-gray-500 font-mono py-2">
         No warning events found.
       </div>
 
       <div
         v-for="(event, index) in displayedEvents"
         :key="`${event.code}-${event.triggered_at}-${index}`"
-        class="border-b border-white/5 py-2"
+        class="border-b border-edge-dark py-2"
       >
         <div class="flex items-center justify-between gap-3">
           <span
-            class="font-bold text-sm"
+            class="font-mono text-xs uppercase tracking-wider"
             :class="warningCodeClass(event.code)"
           >
             {{ event.code }}
           </span>
-          <span class="text-xs font-bold uppercase" :class="severityClass(event.severity)">
+          <span class="text-[10px] font-mono uppercase tracking-widest" :class="severityClass(event.severity)">
             {{ event.severity }}
           </span>
         </div>
-        <div class="text-gray-500 text-xs mt-1">
+        <div class="text-gray-500 text-[10px] font-mono mt-1">
           {{ formatTime(event.triggered_at) }}
         </div>
       </div>

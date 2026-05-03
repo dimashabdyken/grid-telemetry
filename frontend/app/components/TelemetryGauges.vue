@@ -34,14 +34,12 @@ const ledColorClass = (i: number) => {
 </script>
 
 <template>
-  <div class="relative flex w-full flex-col gap-4 overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0f] p-4 shadow-[0_20px_40px_rgba(0,0,0,0.45)]">
-    <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(225,6,0,0.14),transparent_55%)]" />
-
-    <div class="relative flex items-center justify-between gap-2 rounded-lg bg-black/70 px-2 py-3">
+  <div class="relative flex w-full flex-col gap-4 overflow-hidden border border-edge bg-surface p-5">
+    <div class="relative flex items-center justify-between gap-2 border border-edge-dark bg-surface-elevated px-2 py-2">
       <div
         v-for="i in 15"
         :key="i"
-        class="h-3 w-3 rounded-full transition-all duration-100"
+        class="h-3 w-3 transition-all duration-100"
         :class="[
           isLedActive(i)
             ? [ledColorClass(i), 'bg-current shadow-[0_0_8px_currentColor]']
@@ -52,57 +50,55 @@ const ledColorClass = (i: number) => {
 
     <div class="grid grid-cols-3 gap-2 mb-4 items-center">
       <!-- Speed -->
-      <div class="bg-[#0a0a0f] rounded-lg border border-white/5 p-2 flex flex-col items-center">
-        <div class="text-3xl font-black italic text-white tracking-tighter">{{ Math.round(data?.speed ?? 0) }}</div>
-        <div class="text-[8px] text-gray-500 uppercase tracking-widest">KM/H</div>
+      <div class="bg-surface-elevated border border-edge-dark p-2 flex flex-col items-center">
+        <div class="text-3xl font-black text-white tracking-tighter font-mono">{{ Math.round(data?.speed ?? 0) }}</div>
+        <div class="text-[8px] text-gray-500 uppercase tracking-widest font-mono">KM/H</div>
       </div>
       <!-- Gear -->
-      <div class="bg-[#0a0a0f] rounded-lg border border-white/5 p-2 flex flex-col items-center">
-        <div class="text-3xl font-black italic text-white">{{ data?.n_gear ?? 0 }}</div>
-        <div class="text-[8px] text-gray-500 uppercase tracking-widest">GEAR</div>
+      <div class="bg-surface-elevated border border-edge-dark p-2 flex flex-col items-center">
+        <div class="text-3xl font-black text-white font-mono">{{ data?.n_gear ?? 0 }}</div>
+        <div class="text-[8px] text-gray-500 uppercase tracking-widest font-mono">GEAR</div>
       </div>
       <!-- DRS -->
       <div
-        class="h-full flex items-center justify-center rounded border text-[8px] font-black uppercase tracking-widest transition-colors duration-200"
-        :class="isDrsOpen ? 'bg-green-500/20 border-green-500 text-green-400' : 'bg-gray-800 border-gray-700 text-gray-600'"
+        class="h-full flex items-center justify-center border text-[8px] font-mono uppercase tracking-widest transition-colors duration-200"
+        :class="isDrsOpen ? 'bg-green-500/20 border-green-500 text-green-400' : 'bg-surface-elevated border-edge-dark text-gray-600'"
       >
         DRS
       </div>
     </div>
 
-    <div class="relative w-full rounded-xl border border-white/10 bg-black/50 p-4">
-      <div class="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:14px_14px] opacity-20" />
-
-      <div class="relative mb-2 text-xs font-bold uppercase tracking-widest text-gray-400">
+    <div class="relative w-full border border-edge-dark bg-surface-elevated p-4">
+      <div class="relative mb-2 text-xs font-mono uppercase tracking-widest text-gray-400">
         THROTTLE
       </div>
-      <div class="relative h-4 w-full overflow-hidden rounded bg-white/10 -skew-x-12">
+      <div class="relative h-1 w-full overflow-hidden bg-edge-dark">
         <div
-          class="h-full w-full bg-[#00ff00] origin-left transition-transform duration-100 shadow-[0_0_8px_rgba(0,255,0,0.75)]"
+          class="h-full w-full bg-[#00ff00] origin-left transition-transform duration-100"
           :style="{ transform: `scaleX(${clampedThrottle / 100})` }"
         />
       </div>
 
-      <div class="relative mt-4 mb-2 text-xs font-bold uppercase tracking-widest text-gray-400">
+      <div class="relative mt-4 mb-2 text-xs font-mono uppercase tracking-widest text-gray-400">
         BRAKE
       </div>
-      <div class="relative h-4 w-full overflow-hidden rounded bg-white/10 -skew-x-12">
+      <div class="relative h-1 w-full overflow-hidden bg-edge-dark">
         <div
-          class="h-full w-full bg-[#e10600] origin-left transition-transform duration-100 shadow-[0_0_8px_rgba(225,6,0,0.75)]"
+          class="h-full w-full bg-[#e10600] origin-left transition-transform duration-100"
           :style="{ transform: `scaleX(${clampedBrake / 100})` }"
         />
       </div>
 
-      <div class="relative mt-4 mb-1 text-xs font-bold uppercase tracking-widest text-gray-400">
+      <div class="relative mt-4 mb-1 text-xs font-mono uppercase tracking-widest text-gray-400">
         RPM
       </div>
-      <div class="relative mt-2 h-2 w-full overflow-hidden rounded bg-white/10">
+      <div class="relative mt-2 h-1 w-full overflow-hidden bg-edge-dark">
         <div
           class="h-full w-full bg-[#005aff] origin-left transition-transform duration-100"
           :style="{ transform: `scaleX(${Math.min(smoothRpm / 15000, 1)})` }"
         />
       </div>
-      <div class="text-right text-xs text-slate-400 tabular-nums mt-1 font-bold">
+      <div class="text-right text-xs text-slate-400 tabular-nums mt-1 font-mono">
         {{ Math.round(smoothRpm) }}
       </div>
     </div>

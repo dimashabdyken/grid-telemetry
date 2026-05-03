@@ -132,8 +132,8 @@ const metrics = computed(() => [
 </script>
 
 <template>
-  <div class="flex h-full min-h-[220px] w-full flex-col">
-    <div class="flex min-h-0 flex-1 flex-col items-center justify-center">
+  <div class="flex h-full min-h-[220px] w-full flex-col gap-4">
+    <div class="flex min-h-0 flex-1 flex-col items-center justify-center border-b border-edge-dark pb-4">
       <div
         class="relative flex h-32 w-32 shrink-0 items-center justify-center"
         :class="pulseClass"
@@ -163,32 +163,32 @@ const metrics = computed(() => [
         </svg>
 
         <div class="absolute inset-0 flex flex-col items-center justify-center">
-          <div class="text-4xl font-black text-white tabular-nums tracking-tighter">
+          <div class="text-4xl font-black text-white tabular-nums tracking-tighter font-mono">
             {{ Math.round(normalizedScore) }}
           </div>
-          <div class="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-bold">
+          <div class="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-mono">
             HEALTH
           </div>
         </div>
       </div>
     </div>
 
-    <div class="mt-4 grid w-full shrink-0 grid-cols-3 gap-2 border-t border-white/5 pt-4 text-center">
+    <div class="grid w-full shrink-0 grid-cols-3 gap-px border border-edge bg-edge text-center">
       <div
         v-for="metric in metrics"
         :key="metric.label"
-        class="flex h-12 min-w-0 flex-col items-center justify-start"
+        class="flex min-w-0 flex-col items-center justify-start bg-surface p-2"
       >
-        <span class="text-[9px] font-bold uppercase text-gray-500">
+        <span class="text-[9px] font-mono uppercase tracking-wider text-gray-500">
           {{ metric.label }}
         </span>
         <span
-          class="text-sm font-black tabular-nums leading-5 transition-colors duration-300"
+          class="text-sm font-black tabular-nums leading-5 transition-colors duration-300 font-mono"
           :class="metric.textClass"
         >
           {{ Math.round(metric.value) }}%
         </span>
-        <div class="mt-1 h-1 w-full overflow-hidden rounded-full bg-gray-700">
+        <div class="mt-1 h-1 w-full overflow-hidden bg-edge-dark">
           <div
             class="h-full transition-all duration-300"
             :class="metric.barClass"
@@ -198,20 +198,20 @@ const metrics = computed(() => [
       </div>
     </div>
 
-    <div class="mt-4 flex justify-between border-t border-white/10 pt-4">
-      <div class="text-center">
-        <p class="text-[9px] font-bold uppercase tracking-wider text-gray-500">
+    <div class="grid grid-cols-2 gap-4 border-t border-edge-dark pt-3 text-center">
+      <div>
+        <p class="text-[9px] font-mono uppercase tracking-wider text-gray-500">
           Current Lap
         </p>
-        <p class="mt-1 text-sm font-black text-white">
+        <p class="mt-1 text-sm font-black text-white font-mono">
           {{ currentHealth?.snapshot?.lap ?? '-' }}
         </p>
       </div>
-      <div class="text-center">
-        <p class="text-[9px] font-bold uppercase tracking-wider text-gray-500">
+      <div>
+        <p class="text-[9px] font-mono uppercase tracking-wider text-gray-500">
           Last Lap Time
         </p>
-        <p class="mt-1 text-sm font-black tabular-nums text-white">
+        <p class="mt-1 text-sm font-black tabular-nums text-white font-mono">
           {{ currentHealth?.snapshot?.lap_time ?? '0:00.000' }}
         </p>
       </div>

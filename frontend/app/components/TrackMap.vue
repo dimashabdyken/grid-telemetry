@@ -96,14 +96,12 @@ const carPoint = computed(() => {
 </script>
 
 <template>
-  <div class="bg-[#1e1e28] rounded-xl p-4 border border-white/5 shadow-lg flex flex-col h-[320px] w-full relative overflow-hidden">
-    <h2 class="absolute top-6 left-6 text-sm text-gray-400 uppercase tracking-widest font-bold z-10">Track Map</h2>
-    
+  <div class="relative h-full w-full">
     <svg
       v-if="hasRenderableTrack"
       :viewBox="viewBox"
       preserveAspectRatio="xMidYMid meet"
-      class="w-full h-full transform -scale-y-100 flex-1 mt-4"
+      class="w-full h-full transform -scale-y-100"
     >
       <!-- 1. Outer Border (Black) -->
       <polyline
@@ -133,7 +131,7 @@ const carPoint = computed(() => {
       />
     </svg>
     <div v-else class="flex flex-col items-center justify-center h-full text-gray-500">
-      <p class="text-xs font-bold uppercase tracking-widest">Loading Track Geometry...</p>
+      <p class="text-xs font-mono uppercase tracking-[0.2em]">Loading Track Geometry</p>
     </div>
   </div>
 </template>

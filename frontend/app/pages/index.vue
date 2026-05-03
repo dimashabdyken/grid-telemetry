@@ -104,9 +104,18 @@
             :live-life="currentHealth?.snapshot?.tyre_life"
             class="h-full"
           />
-            <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg h-full">
-            <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold mb-2">System Health</h2>
-            <div class="flex flex-col items-center justify-center flex-1">
+          <section class="bg-surface border border-edge p-5 flex flex-col gap-4 h-full">
+            <div class="flex items-center justify-between border-b border-edge-dark pb-2">
+              <h2 class="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-mono">
+                System Health
+              </h2>
+              <span
+                class="text-[10px] font-mono uppercase tracking-wider text-gray-400"
+              >
+                Severity: {{ highestSeverity || 'NORMAL' }}
+              </span>
+            </div>
+            <div class="flex flex-1 items-center justify-center">
               <HealthScoreRing
                 :score="score"
                 :severity="highestSeverity || 'NORMAL'"
@@ -118,31 +127,59 @@
             :thermal-data="thermalData"
             class="h-full"
           />
-            <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 flex flex-col gap-4 shadow-lg h-full">
-            <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold">Telemetry Stream</h2>
-            <div v-if="!latestTelemetry" class="flex flex-col items-center justify-center h-48 text-gray-500">
-              <p class="text-lg font-bold uppercase tracking-widest">Waiting for data...</p>
-            </div>
-            <div v-else class="grid grid-cols-1">
-              <TelemetryGauges :data="smoothedTelemetry" />
-            </div>
-          </section>
+            <section class="bg-surface border border-edge p-5 flex flex-col gap-3 h-full">
+              <div class="flex items-center justify-between border-b border-edge-dark pb-2">
+                <h2 class="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-mono">
+                  Telemetry Stream
+                </h2>
+                <span class="text-[10px] font-mono uppercase tracking-wider text-gray-400">
+                  {{ latestTelemetry ? 'Live' : 'Standby' }}
+                </span>
+              </div>
+              <div v-if="!latestTelemetry" class="flex flex-1 items-center justify-center text-gray-500">
+                <p class="text-xs font-mono uppercase tracking-[0.2em]">Waiting for data</p>
+              </div>
+              <div v-else class="min-h-0 flex-1">
+                <TelemetryGauges :data="smoothedTelemetry" />
+              </div>
+            </section>
         </div>
 
         <CarVisualizer />
 
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="h-[320px]">
-              <div v-if="!latestTelemetry" class="flex flex-col items-center justify-center h-full text-gray-500 bg-[#1e1e28] rounded-xl p-4 border border-white/5 shadow-lg">
-              <p class="text-lg font-bold uppercase tracking-widest">Waiting for data...</p>
-            </div>
-            <TrackMap v-else :telemetry="latestTelemetry" :team-color="driverInfo?.team_colour" :driver-acronym="driverInfo?.name_acronym" />
-          </div>
+            <section class="bg-surface border border-edge p-5 h-[320px] flex flex-col gap-3">
+              <div class="flex items-center justify-between border-b border-edge-dark pb-2">
+                <h2 class="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-mono">
+                  Track Map
+                </h2>
+                <span class="text-[10px] font-mono uppercase tracking-wider text-gray-400">
+                  {{ latestTelemetry ? 'Live' : 'Standby' }}
+                </span>
+              </div>
+              <div v-if="!latestTelemetry" class="flex flex-1 items-center justify-center text-gray-500">
+                <p class="text-xs font-mono uppercase tracking-[0.2em]">Waiting for data</p>
+              </div>
+              <div v-else class="min-h-0 flex-1">
+                <TrackMap
+                  :telemetry="latestTelemetry"
+                  :team-color="driverInfo?.team_colour"
+                  :driver-acronym="driverInfo?.name_acronym"
+                />
+              </div>
+            </section>
 
-          <section class="bg-[#1e1e28] rounded-xl p-6 border border-white/5 shadow-lg h-[320px] flex flex-col">
-            <h2 class="text-sm text-gray-400 uppercase tracking-widest font-bold mb-4">Speed Trend</h2>
-            <div v-if="!latestTelemetry" class="flex flex-col items-center justify-center flex-1 text-gray-500">
-              <p class="text-lg font-bold uppercase tracking-widest">Waiting for data...</p>
+          <section class="bg-surface border border-edge p-5 h-[320px] flex flex-col gap-3">
+            <div class="flex items-center justify-between border-b border-edge-dark pb-2">
+              <h2 class="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-mono">
+                Speed Trend
+              </h2>
+              <span class="text-[10px] font-mono uppercase tracking-wider text-gray-400">
+                {{ latestTelemetry ? 'Live' : 'Standby' }}
+              </span>
+            </div>
+            <div v-if="!latestTelemetry" class="flex flex-1 items-center justify-center text-gray-500">
+              <p class="text-xs font-mono uppercase tracking-[0.2em]">Waiting for data</p>
             </div>
             <div v-else class="min-h-0 flex-1">
               <TelemetryChart :data="smoothedTelemetry" />
