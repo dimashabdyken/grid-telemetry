@@ -10,4 +10,4 @@ node_modules/
 cache/
 *.pkl
 *.sqlite
-.github/skills/impeccable/
+.github/
