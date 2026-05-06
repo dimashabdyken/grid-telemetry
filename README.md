@@ -84,7 +84,6 @@ pytest
 
 ## Screenshots
 
-Add screenshots under `docs/screenshots/` and update the filenames below if needed.
 
 ![Dashboard overview](docs/screenshots/dashboard-1.png)
 ![Dashboard details](docs/screenshots/dashboard-2.png)
