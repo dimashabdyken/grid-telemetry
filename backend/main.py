@@ -347,7 +347,10 @@ async def telemetry(
         "records": validated_records,
     }
     if include_health:
-        response["health"] = compute_vehicle_health(validated_records)
+        response["health"] = compute_vehicle_health(
+            validated_records,
+            scope_key=(resolved_session_key, driver_number),
+        )
 
     await cache_set(cache_key, response)
     return response
@@ -408,7 +411,18 @@ async def get_warnings_history(session_key: str = "9161", limit: int = 10):
             .limit(limit)
         )
         result = await db.execute(stmt)
-        return result.scalars().all()
+        rows = result.scalars().all()
+        return [
+            {
+                "id": row.id,
+                "session_key": row.session_key,
+                "driver_number": row.driver_number,
+                "code": row.code,
+                "severity": row.severity,
+                "triggered_at": row.triggered_at.isoformat(),
+            }
+            for row in rows
+        ]
 
 
 async def _ws_ping_loop(websocket: WebSocket, room: str) -> None:
@@ -420,6 +434,7 @@ async def _ws_ping_loop(websocket: WebSocket, room: str) -> None:
             raise TimeoutError("WebSocket heartbeat timeout")
         try:
             await websocket.send_text(orjson.dumps({"type": "ping"}).decode("utf-8"))
+            manager.touch_activity(websocket)
         except (WebSocketDisconnect, RuntimeError):
             # The connection is closing/closed; exit ping loop without escalating.
             return

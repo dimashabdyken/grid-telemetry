@@ -41,7 +41,7 @@ LIVE_THERMAL_WARNING_CODES = {
     "PCM_SATURATED",
     "COGNITIVE_DEGRADED",
 }
-_last_seen_warnings = set()
+_last_seen_warnings: dict[tuple[Any, ...], set[str]] = {}
 _last_seen_warnings_lock = Lock()
 
 
@@ -135,14 +135,17 @@ def _calculate_transmission_stress(records: list[dict[str, Any]]) -> float:
     return _clamp_percentage(rpm_stress + load_stress + shift_stress)
 
 
-def _apply_warning_state(health: dict[str, Any], warnings: list[str]) -> dict[str, Any]:
+def _apply_warning_state(
+    health: dict[str, Any],
+    warnings: list[str],
+    scope_key: tuple[Any, ...] | None = None,
+) -> dict[str, Any]:
     current_warnings = set(warnings)
+    key = scope_key or ("global",)
     with _last_seen_warnings_lock:
-        new_warnings = [
-            warning for warning in warnings if warning not in _last_seen_warnings
-        ]
-        _last_seen_warnings.clear()
-        _last_seen_warnings.update(current_warnings)
+        previous = _last_seen_warnings.get(key, set())
+        new_warnings = [warning for warning in warnings if warning not in previous]
+        _last_seen_warnings[key] = current_warnings
 
     health["warnings"] = warnings
     health["active_warnings"] = warnings
@@ -610,7 +613,23 @@ async def _persist_warning_events(
         logging.error(f"Warning event save failed: {exc}")
 
 
-def compute_vehicle_health(records: list[dict[str, Any]]) -> dict[str, Any]:
+def _extract_scope_key(records: list[dict[str, Any]]) -> tuple[Any, ...] | None:
+    if not records:
+        return None
+
+    latest = records[-1]
+    session_key = latest.get("session_key")
+    driver_number = latest.get("driver_number")
+    if session_key is None and driver_number is None:
+        return None
+
+    return (session_key, driver_number)
+
+
+def compute_vehicle_health(
+    records: list[dict[str, Any]],
+    scope_key: tuple[Any, ...] | None = None,
+) -> dict[str, Any]:
     if not records:
         warnings = ["NO_DATA"]
         return _apply_warning_state(
@@ -620,7 +639,11 @@ def compute_vehicle_health(records: list[dict[str, Any]]) -> dict[str, Any]:
                 "timestamp": datetime.now(UTC).isoformat(),
             },
             warnings,
+            scope_key=scope_key,
         )
+
+    if scope_key is None:
+        scope_key = _extract_scope_key(records)
 
     warnings: list[str] = []
     deductions = 0
@@ -693,6 +716,7 @@ def compute_vehicle_health(records: list[dict[str, Any]]) -> dict[str, Any]:
             "timestamp": datetime.now(UTC).isoformat(),
         },
         warnings,
+        scope_key=scope_key,
     )
 
 
@@ -803,7 +827,10 @@ async def poll_telemetry(
             if len(fallback_history) > 10:
                 fallback_history = fallback_history[-10:]
 
-            health = compute_vehicle_health(fallback_history)
+            health = compute_vehicle_health(
+                fallback_history,
+                scope_key=(resolved_session_key, resolved_driver),
+            )
             _inject_lap_snapshot(health, resolved_driver, latest)
             thermal = _compute_thermal_state(latest, health, pcm_load_state)
             pcm_load_state = _to_float(thermal.get("pcm_load"))
