@@ -100,7 +100,7 @@ const colorClass = computed(() => {
         </div>
         <div class="h-1 w-full bg-black relative top-0 left-0 overflow-hidden">
           <div
-            class="absolute top-0 left-0 h-full transition-transform duration-700 origin-left ease-out"
+            class="absolute top-0 left-0 h-full w-full transition-transform duration-700 origin-left ease-out"
             :class="gripBarClass"
             :style="{ transform: `scaleX(${gripLevel / 100})` }"
           />

@@ -14,6 +14,24 @@ const positionLabel = computed(() =>
 )
 
 const pitStopsLabel = computed(() => props.livePitStops ?? 0)
+
+const gapLabel = computed(() => {
+  const raw = (props.liveGap ?? props.driver?.gap ?? 'N/A').toString()
+  if (raw === 'N/A') {
+    return raw
+  }
+  const match = raw.match(/-?\d+(?:\.\d+)?/)
+  if (!match) {
+    return raw
+  }
+  const value = Number(match[0])
+  if (Number.isNaN(value)) {
+    return raw
+  }
+  const trimmed = raw.trim()
+  const sign = trimmed.startsWith('+') ? '+' : trimmed.startsWith('-') ? '-' : ''
+  return `${sign}${Math.abs(value).toFixed(1)}s`
+})
 </script>
 
 <template>
@@ -57,8 +75,8 @@ const pitStopsLabel = computed(() => props.livePitStops ?? 0)
       </div>
       <div class="bg-[#0f0f13] p-3 text-center">
         <p class="text-[10px] font-mono uppercase tracking-widest text-gray-400 mb-1">Gap</p>
-        <p class="text-2xl font-black font-mono text-white">
-          {{ liveGap ?? driver?.gap ?? 'N/A' }}
+        <p class="text-2xl font-black font-mono text-white truncate max-w-full">
+          {{ gapLabel }}
         </p>
       </div>
     </div>
