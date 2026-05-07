@@ -30,7 +30,7 @@ const WARNING_LABELS: Record<string, string> = {
 
   <div
     v-else
-    class="p-3 uppercase font-mono tracking-[0.2em] text-xs flex items-center justify-center gap-3 transition-colors duration-300 bg-red-950/40 border border-[#e10600] text-white animate-pulse"
+    class="p-3 uppercase font-mono tracking-[0.2em] text-xs flex items-center justify-center gap-3 transition-colors duration-500 bg-red-950/30 border border-[#e10600] text-white pulse-slow"
   >
     <span class="w-2 h-2 bg-[#e10600]" />
     MASTER WARNING: {{ props.warnings.map(warning => WARNING_LABELS[warning] || warning).join(' | ') }}

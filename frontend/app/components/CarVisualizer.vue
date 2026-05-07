@@ -24,7 +24,7 @@
       <img
         src="/rb19.png"
         alt="RB19"
-        class="w-[151%] md:w-[143%] h-auto max-h-[128%] object-contain drop-shadow-[0_18px_18px_rgba(0,0,0,0.8)]"
+        class="w-[151%] md:w-[143%] h-auto max-h-[128%] object-contain drop-shadow-[0_18px_18px_rgba(0,0,0,0.8)] transition-transform duration-300 ease-out group-hover:scale-[1.04]"
       />
     </div>
   </div>

@@ -30,11 +30,11 @@ const showAlert = computed(() => alertLevel.value !== 'none')
 
 const alertBannerClass = computed(() => {
   if (alertLevel.value === 'critical') {
-    return 'border-red-500/60 bg-red-500/15 text-red-300 animate-pulse'
+    return 'border-red-500/50 bg-red-500/12 text-red-300 pulse-slow'
   }
 
   if (alertLevel.value === 'warning') {
-    return 'border-yellow-400/50 bg-yellow-400/15 text-yellow-300'
+    return 'border-yellow-400/40 bg-yellow-400/12 text-yellow-300'
   }
 
   return 'hidden'

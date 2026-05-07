@@ -81,7 +81,7 @@ const displayedEvents = computed(() => {
 
 onMounted(async () => {
   await loadEvents()
-  refreshTimer = setInterval(loadEvents, 5000)
+  refreshTimer = setInterval(loadEvents, 15000)
 })
 
 onUnmounted(() => {

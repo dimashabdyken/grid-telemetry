@@ -21,3 +21,19 @@ body {
     color: var(--foreground);
     font-family: var(--font-sans);
 }
+
+.pulse-slow {
+    animation: pulse-slow 2.6s ease-in-out infinite;
+}
+
+@keyframes pulse-slow {
+
+    0%,
+    100% {
+        opacity: 0.85;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}
