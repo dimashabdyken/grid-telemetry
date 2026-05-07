@@ -20,19 +20,43 @@ const WARNING_LABELS: Record<string, string> = {
 </script>
 
 <template>
-  <div
-    v-if="props.warnings.length === 0"
-    class="p-3 uppercase font-mono tracking-[0.2em] text-xs flex items-center justify-center gap-3 transition-colors duration-300 bg-emerald-950/20 border border-[#00ff00]/30 text-[#00ff00]"
-  >
-    <span class="w-2 h-2 bg-[#00ff00]" />
-    ALL SYSTEMS NOMINAL
-  </div>
+  <Transition name="master-warning" mode="out-in">
+    <div
+      v-if="props.warnings.length === 0"
+      key="nominal"
+      class="p-3 uppercase font-mono tracking-[0.2em] text-xs flex items-center justify-center gap-3 transition-colors duration-300 bg-emerald-950/20 border border-[#00ff00]/30 text-[#00ff00]"
+    >
+      <span class="w-2 h-2 bg-[#00ff00]" />
+      ALL SYSTEMS NOMINAL
+    </div>
 
-  <div
-    v-else
-    class="p-3 uppercase font-mono tracking-[0.2em] text-xs flex items-center justify-center gap-3 transition-colors duration-500 bg-red-950/30 border border-[#e10600] text-white pulse-slow"
-  >
-    <span class="w-2 h-2 bg-[#e10600]" />
-    MASTER WARNING: {{ props.warnings.map(warning => WARNING_LABELS[warning] || warning).join(' | ') }}
-  </div>
+    <div
+      v-else
+      key="warning"
+      class="p-3 uppercase font-mono tracking-[0.2em] text-xs flex items-center justify-center gap-3 transition-colors duration-500 bg-red-950/30 border border-[#e10600] text-white pulse-slow"
+    >
+      <span class="w-2 h-2 bg-[#e10600]" />
+      MASTER WARNING: {{ props.warnings.map(warning => WARNING_LABELS[warning] || warning).join(' | ') }}
+    </div>
+  </Transition>
 </template>
+
+<style scoped>
+.master-warning-enter-active,
+.master-warning-leave-active {
+  transition: opacity 180ms ease-out, transform 180ms ease-out;
+}
+
+.master-warning-enter-from,
+.master-warning-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .master-warning-enter-active,
+  .master-warning-leave-active {
+    transition-duration: 0ms;
+  }
+}
+</style>
