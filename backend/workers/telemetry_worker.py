@@ -10,6 +10,7 @@ from typing import Any
 from backend.core.config import settings
 from backend.db.base import AsyncSessionLocal
 from backend.db.service import save_telemetry_batch, save_warning_events
+from backend.schemas.telemetry import ThermalState
 from backend.services.f1_service import f1_service
 from backend.services.thermal_engine import (
     DEFAULT_AMBIENT_TEMP_C,
@@ -19,7 +20,6 @@ from backend.services.thermal_engine import (
     calc_seebeck_watts,
     get_thermal_alert,
 )
-from backend.schemas.telemetry import ThermalState
 
 logger = logging.getLogger(__name__)
 
@@ -89,14 +89,14 @@ def _row_to_record(row: Any, session_key: str, driver_number: int) -> dict[str, 
 def _to_float(value: Any, default: float = 0.0) -> float:
     try:
         return float(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
 
 
 def _to_optional_float(value: Any) -> float | None:
     try:
         parsed = float(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
     return parsed if math.isfinite(parsed) else None
@@ -105,7 +105,7 @@ def _to_optional_float(value: Any) -> float | None:
 def _to_int(value: Any, default: int = 0) -> int:
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
 
 
@@ -579,10 +579,7 @@ def _debounce_warning_codes(
 
     for warning in warnings:
         last_tick = last_fired_ticks.get(warning)
-        if (
-            last_tick is not None
-            and tick - last_tick < THERMAL_WARNING_DEBOUNCE_TICKS
-        ):
+        if last_tick is not None and tick - last_tick < THERMAL_WARNING_DEBOUNCE_TICKS:
             continue
 
         last_fired_ticks[warning] = tick
