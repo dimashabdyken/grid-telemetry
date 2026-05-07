@@ -186,10 +186,13 @@ async def fetch_drivers(session_key: str | int) -> list[dict[str, Any]]:
 
 
 async def fetch_car_data(
-    _: str | int,
+    session_key: str | int,
     driver_number: int | None = None,
 ) -> list[dict[str, Any]]:
     resolved_driver = driver_number if driver_number is not None else 1
+    resolved_session_key = (
+        str(session_key) if session_key is not None else _default_session_key()
+    )
 
     car_data = await asyncio.to_thread(
         f1_service.get_car_data_with_position,
@@ -207,7 +210,7 @@ async def fetch_car_data(
         gear = _to_int(row.get("nGear"))
         records.append(
             {
-                "session_key": _default_session_key(),
+                "session_key": resolved_session_key,
                 "date": date_iso,
                 "driver_number": resolved_driver,
                 "speed": _to_float(row.get("Speed")),

@@ -762,6 +762,24 @@ def _process_record_sync(
     return record_dict, health
 
 
+def _normalize_record_for_storage(
+    record: dict[str, Any],
+    session_key: str,
+    driver_number: int,
+) -> dict[str, Any]:
+    return {
+        "session_key": session_key,
+        "driver_number": driver_number,
+        "speed": _to_float(record.get("speed", record.get("Speed"))),
+        "throttle": _to_float(record.get("throttle", record.get("Throttle"))),
+        "brake": _to_float(record.get("brake", record.get("Brake"))),
+        "rpm": _to_int(record.get("rpm", record.get("RPM"))),
+        "gear": _to_int(record.get("gear", record.get("n_gear", record.get("nGear")))),
+        "drs": _to_int(record.get("drs", record.get("DRS"))),
+        "_id": record.get("_id"),
+    }
+
+
 async def poll_telemetry(
     session_key: str | int | None = None,
     driver_number: int | None = 1,
@@ -916,6 +934,11 @@ async def poll_telemetry(
                     record,
                     recent_records,
                 )
+                record_for_persistence = _normalize_record_for_storage(
+                    record_dict,
+                    resolved_session_key,
+                    resolved_driver,
+                )
                 _inject_lap_snapshot(health, resolved_driver, record_dict)
                 thermal = _compute_thermal_state(record_dict, health, pcm_load_state)
                 pcm_load_state = _to_float(thermal.get("pcm_load"))
@@ -933,12 +956,18 @@ async def poll_telemetry(
                         "warnings": new_warnings,
                     }
                     asyncio.create_task(
-                        _persist_warning_records([record_dict], health_for_persistence)
+                        _persist_warning_records(
+                            [record_for_persistence],
+                            health_for_persistence,
+                        )
                     )
 
                 if thermal_warnings and len(asyncio.all_tasks()) < 50:
                     asyncio.create_task(
-                        _persist_warning_events(record_dict, thermal_warnings)
+                        _persist_warning_events(
+                            record_for_persistence,
+                            thermal_warnings,
+                        )
                     )
 
                 yield {
