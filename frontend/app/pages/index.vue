@@ -1,5 +1,5 @@
   <script setup lang="ts">
-  import { onMounted, onUnmounted, ref } from 'vue'
+  import { computed, onMounted, onUnmounted, ref } from 'vue'
   import { getDrivers, getSession, getTyreStatus } from '~/lib/api'
   import CarVisualizer from '~/components/CarVisualizer.vue'
   import DriverCard from '~/components/DriverCard.vue'
@@ -32,6 +32,9 @@
   } = useTelemetrySocket()
 
   const { score, warnings, highestSeverity } = useHealthScore(currentHealth)
+
+  const speedValue = computed(() => latestTelemetry.value?.speed ?? 0)
+  const brakeValue = computed(() => latestTelemetry.value?.brake ?? 0)
 
   onMounted(async () => {
     connect(9161, 1)
@@ -96,15 +99,15 @@
             :live-position="currentHealth?.snapshot?.position"
             :live-gap="currentHealth?.snapshot?.gap"
             :live-pit-stops="currentHealth?.snapshot?.pit_stops"
-            class="h-full"
+            class="h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(0,0,0,0.5)] hover:border-white/20"
           />
           <TyreStatusCard
             :tyre-status="tyreInfo"
             :live-compound="currentHealth?.snapshot?.tyre_compound"
             :live-life="currentHealth?.snapshot?.tyre_life"
-            class="h-full"
+            class="h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(0,0,0,0.5)] hover:border-white/20"
           />
-          <section class="bg-surface border border-edge p-5 flex flex-col gap-4 h-full">
+          <section class="bg-surface border border-edge p-5 flex flex-col gap-4 h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(0,0,0,0.5)] hover:border-white/20">
             <div class="flex items-center justify-between border-b border-edge-dark pb-2">
               <h2 class="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-mono">
                 System Health
@@ -125,9 +128,9 @@
           </section>
           <ThermalPanel
             :thermal-data="thermalData"
-            class="h-full"
+            class="h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(0,0,0,0.5)] hover:border-white/20"
           />
-            <section class="bg-surface border border-edge p-5 flex flex-col gap-3 h-full">
+            <section class="bg-surface border border-edge p-5 flex flex-col gap-3 h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(0,0,0,0.5)] hover:border-white/20">
               <div class="flex items-center justify-between border-b border-edge-dark pb-2">
                 <h2 class="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-mono">
                   Telemetry Stream
@@ -148,7 +151,7 @@
         <CarVisualizer />
 
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <section class="bg-surface border border-edge p-5 h-[368px] flex flex-col gap-3">
+            <section class="bg-surface border border-edge p-5 h-[368px] flex flex-col gap-3 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(0,0,0,0.5)] hover:border-white/20">
               <div class="flex items-center justify-between border-b border-edge-dark pb-2">
                 <h2 class="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-mono">
                   Track Map
@@ -169,7 +172,14 @@
               </div>
             </section>
 
-          <section class="bg-surface border border-edge p-5 h-[368px] flex flex-col gap-3">
+          <section
+            class="bg-surface border p-5 h-[368px] flex flex-col gap-3 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(0,0,0,0.5)] hover:border-white/20 transition-colors duration-500"
+            :class="{
+              'border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.3)]': speedValue > 300,
+              'border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.3)]': brakeValue > 80,
+              'border-white/5': speedValue <= 300 && brakeValue <= 80
+            }"
+          >
             <div class="flex items-center justify-between border-b border-edge-dark pb-2">
               <h2 class="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-mono">
                 Speed Trend
