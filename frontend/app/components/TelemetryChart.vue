@@ -1,19 +1,24 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { LineChart } from 'echarts/charts'
+import { EffectScatterChart, LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import VueECharts from 'vue-echarts'
 import type { CarDataRecord } from '~/lib/types'
 
-use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
+use([EffectScatterChart, LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
 const props = defineProps<{
   data: CarDataRecord | null
 }>()
 
 const chartData = ref<number[]>([])
+const reduceMotion = ref(false)
+
+if (typeof window !== 'undefined') {
+  reduceMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
 
 watch(
   () => props.data,
@@ -29,6 +34,23 @@ watch(
   },
   { deep: true }
 )
+
+const highlightPoint = computed(() => {
+  const windowSize = 14
+  if (chartData.value.length < 6) {
+    return null
+  }
+
+  const sliceStart = Math.max(chartData.value.length - windowSize, 0)
+  const windowSlice = chartData.value.slice(sliceStart)
+  const maxValue = Math.max(...windowSlice)
+  const maxIndex = windowSlice.lastIndexOf(maxValue)
+
+  return {
+    index: sliceStart + maxIndex,
+    value: maxValue
+  }
+})
 
 const chartOption = computed(() => ({
   backgroundColor: 'transparent',
@@ -80,7 +102,29 @@ const chartOption = computed(() => ({
         color: '#00ff00'
       },
       data: chartData.value
-    }
+    },
+    ...(highlightPoint.value
+      ? [
+          {
+            type: 'effectScatter',
+            coordinateSystem: 'cartesian2d',
+            symbolSize: 12,
+            data: [[highlightPoint.value.index + 1, highlightPoint.value.value]],
+            rippleEffect: reduceMotion.value
+              ? undefined
+              : {
+                  period: 2.6,
+                  scale: 2.2,
+                  brushType: 'stroke'
+                },
+            itemStyle: {
+              color: '#e10600',
+              borderColor: '#e10600',
+              borderWidth: 1
+            }
+          }
+        ]
+      : [])
   ]
 }))
 </script>
