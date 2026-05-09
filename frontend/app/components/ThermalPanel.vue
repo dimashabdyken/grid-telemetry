@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, toRef } from 'vue'
+import { computed, ref, toRef, watch } from 'vue'
 import { useThermalState } from '~/composables/useThermalState'
 import type { ThermalState } from '~/lib/types'
 
@@ -28,6 +28,27 @@ const seebeckPercent = computed(() => {
 
 const showAlert = computed(() => alertLevel.value !== 'none')
 
+const alertPulse = ref(false)
+let alertReady = false
+
+const scheduleFrame = (cb: () => void) => {
+  if (typeof window === 'undefined') {
+    setTimeout(cb, 0)
+    return
+  }
+  requestAnimationFrame(cb)
+}
+
+const triggerAlertPulse = () => {
+  alertPulse.value = false
+  scheduleFrame(() => {
+    alertPulse.value = true
+    setTimeout(() => {
+      alertPulse.value = false
+    }, 220)
+  })
+}
+
 const alertBannerClass = computed(() => {
   if (alertLevel.value === 'critical') {
     return 'border-red-500/50 bg-red-500/12 text-red-300 pulse-slow'
@@ -45,6 +66,16 @@ const alertText = computed(() =>
     ? 'THERMAL CRITICAL — AUTO MODE ON'
     : 'THERMAL WARNING'
 )
+
+watch(alertLevel, (next, prev) => {
+  if (!alertReady) {
+    alertReady = true
+    return
+  }
+  if (next !== prev && (next === 'warning' || next === 'critical')) {
+    triggerAlertPulse()
+  }
+})
 
 const metrics = computed(() => [
   {
@@ -69,7 +100,10 @@ const metrics = computed(() => [
 </script>
 
 <template>
-  <div class="relative flex w-full flex-col gap-4 overflow-hidden border border-edge bg-surface p-5">
+  <div
+    class="relative flex w-full flex-col gap-4 overflow-hidden border border-edge bg-surface p-5"
+    :class="alertPulse ? 'thermal-pulse' : ''"
+  >
 
     <div
       v-if="showAlert"
@@ -174,3 +208,27 @@ const metrics = computed(() => [
     </div>
   </div>
 </template>
+
+<style scoped>
+.thermal-pulse {
+  animation: thermal-pulse 220ms ease-out;
+}
+
+@keyframes thermal-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(225, 6, 0, 0.35);
+  }
+  60% {
+    box-shadow: 0 0 0 2px rgba(225, 6, 0, 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(225, 6, 0, 0.2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thermal-pulse {
+    animation: none;
+  }
+}
+</style>

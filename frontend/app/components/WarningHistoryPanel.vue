@@ -25,6 +25,17 @@ const severityByCode: Record<string, string> = {
   POSSIBLE_MISSED_GEAR: 'LOW'
 }
 
+const filterOptions = [
+  { key: 'ALL', label: 'All' },
+  { key: 'LIVE', label: 'Live' },
+  { key: 'CRITICAL', label: 'Critical' },
+  { key: 'HIGH', label: 'High' },
+  { key: 'MEDIUM', label: 'Medium' },
+  { key: 'LOW', label: 'Low' }
+]
+
+const activeFilter = ref('ALL')
+
 const formatTime = (value: string) => {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) {
@@ -84,6 +95,16 @@ const displayedEvents = computed(() => {
   }))
 })
 
+const filteredEvents = computed(() => {
+  if (activeFilter.value === 'ALL') {
+    return displayedEvents.value
+  }
+  if (activeFilter.value === 'LIVE') {
+    return displayedEvents.value.filter((event) => event.triggered_at === 'LIVE')
+  }
+  return displayedEvents.value.filter((event) => event.severity === activeFilter.value)
+})
+
 const expandedKey = ref<string | null>(null)
 
 const toggleDetails = (key: string) => {
@@ -122,8 +143,22 @@ onUnmounted(() => {
         Event Log
       </h2>
       <span class="text-[10px] font-mono uppercase tracking-wider text-gray-400">
-        {{ displayedEvents.length }} events
+        {{ filteredEvents.length }} events
       </span>
+    </div>
+
+    <div class="mt-3 flex flex-wrap gap-2">
+      <button
+        v-for="option in filterOptions"
+        :key="option.key"
+        type="button"
+        class="filter-chip"
+        :class="activeFilter === option.key ? 'filter-chip-active' : ''"
+        :aria-pressed="activeFilter === option.key"
+        @click="activeFilter = option.key"
+      >
+        {{ option.label }}
+      </button>
     </div>
 
     <div class="h-64 overflow-y-auto pt-3">
@@ -131,8 +166,8 @@ onUnmounted(() => {
         Loading events...
       </div>
 
-      <div v-else-if="displayedEvents.length === 0" class="text-xs text-gray-500 font-mono py-2">
-        No warning events found.
+      <div v-else-if="filteredEvents.length === 0" class="text-xs text-gray-500 font-mono py-2">
+        No events for this filter.
       </div>
 
       <TransitionGroup
@@ -141,7 +176,7 @@ onUnmounted(() => {
         class="relative flex flex-col"
       >
         <div
-          v-for="event in displayedEvents"
+          v-for="event in filteredEvents"
           :key="event.key"
           class="border-b border-edge-dark py-2"
         >
@@ -210,26 +245,26 @@ onUnmounted(() => {
 <style scoped>
 .event-log-enter-active,
 .event-log-leave-active {
-  transition: opacity 180ms ease-out, transform 180ms ease-out;
+  transition: opacity 320ms ease-out, transform 320ms ease-out;
 }
 
 .event-log-enter-from {
   opacity: 0;
-  transform: translateY(6px);
+  transform: translateY(10px);
 }
 
 .event-log-leave-to {
   opacity: 0;
-  transform: translateY(-6px);
+  transform: translateY(-10px);
 }
 
 .event-log-move {
-  transition: transform 180ms ease-out;
+  transition: transform 320ms ease-out;
 }
 
 .event-detail-enter-active,
 .event-detail-leave-active {
-  transition: opacity 200ms ease-out, transform 200ms ease-out;
+  transition: opacity 260ms ease-out, transform 260ms ease-out;
 }
 
 .event-detail-enter-from,
@@ -238,12 +273,54 @@ onUnmounted(() => {
   transform: translateY(-4px);
 }
 
+.filter-chip {
+  border: 1px solid rgb(51 51 51 / 1);
+  background: rgb(10 10 12 / 1);
+  color: rgb(148 163 184 / 1);
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  letter-spacing: 0.2em;
+  padding: 4px 8px;
+  text-transform: uppercase;
+  transition: color 160ms ease-out, border-color 160ms ease-out, transform 160ms ease-out;
+}
+
+.filter-chip:hover {
+  color: rgb(248 250 252 / 1);
+  border-color: rgb(82 82 91 / 1);
+}
+
+.filter-chip-active {
+  color: rgb(255 255 255 / 1);
+  border-color: rgb(225 6 0 / 1);
+  box-shadow: 0 0 0 1px rgb(225 6 0 / 0.25);
+  animation: chip-select 160ms ease-out;
+}
+
+@keyframes chip-select {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .event-log-enter-active,
   .event-log-leave-active,
   .event-log-move,
   .event-detail-enter-active,
   .event-detail-leave-active {
+    transition-duration: 0ms;
+  }
+
+  .filter-chip,
+  .filter-chip-active {
+    animation: none;
     transition-duration: 0ms;
   }
 }
