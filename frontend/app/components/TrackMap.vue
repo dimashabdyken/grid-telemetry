@@ -119,16 +119,21 @@ const carPoint = computed(() => {
       <polyline :points="sector3Points" fill="none" stroke="#fff200" stroke-width="150" stroke-linejoin="round" stroke-linecap="round" />
 
       <!-- Car Dot -->
-      <circle
+      <g
         v-if="carPoint"
-        :cx="carPoint.x"
-        :cy="carPoint.y"
-        r="250"
-        :fill="carColor"
-        stroke="#ffffff"
-        stroke-width="80"
-        class="drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
-      />
+        class="transition-transform duration-150 ease-linear will-change-transform"
+        :style="{ transform: `translate3d(${carPoint.x}px, ${carPoint.y}px, 0)` }"
+      >
+        <circle
+          cx="0"
+          cy="0"
+          r="250"
+          :fill="carColor"
+          stroke="#ffffff"
+          stroke-width="80"
+          class="drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
+        />
+      </g>
     </svg>
     <div v-else class="flex flex-col items-center justify-center h-full text-gray-500">
       <p class="text-xs font-mono uppercase tracking-[0.2em]">Loading Track Geometry</p>
