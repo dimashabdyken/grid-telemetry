@@ -11,3 +11,4 @@ cache/
 *.pkl
 *.sqlite
 .github/
+.codex/
