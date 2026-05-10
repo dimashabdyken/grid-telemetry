@@ -778,6 +778,9 @@ def _process_record_sync(
             ):
                 record_dict[key] = None
 
+    # Sync the health snapshot BRK metric with the newly simulated analog brake
+    health["snapshot"]["brake_agg"] = record_dict.get("brake", 0)
+
     return record_dict, health
 
 
