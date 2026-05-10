@@ -121,7 +121,7 @@ const carPoint = computed(() => {
       <!-- Car Dot -->
       <g
         v-if="carPoint"
-        class="transition-transform duration-150 ease-linear will-change-transform"
+        class="transition-transform duration-[250ms] ease-out will-change-transform"
         :style="{ transform: `translate3d(${carPoint.x}px, ${carPoint.y}px, 0)` }"
       >
         <circle
