@@ -15,13 +15,17 @@ const MAX_RECONNECT_ATTEMPTS = 5
 const HEARTBEAT_TIMEOUT_MS = 30_000
 const HEARTBEAT_CHECK_INTERVAL_MS = 5_000
 const SMOOTHING_INTERVAL_MS = 120
+const HEALTH_SMOOTHING_INTERVAL_MS = 900
+const THERMAL_SMOOTHING_INTERVAL_MS = 600
 const METRIC_SMOOTHING_ALPHA = 0.35
 
 const connectionState = ref<ConnectionState>('closed')
 const latestTelemetry = ref<WSTelemetryMessage['latest'] | null>(null)
 const smoothedTelemetry = ref<WSTelemetryMessage['latest'] | null>(null)
 const currentHealth = ref<WSTelemetryMessage['health'] | null>(null)
+const latestHealth = ref<WSTelemetryMessage['health'] | null>(null)
 const thermalData = ref<ThermalState | null>(null)
+const latestThermal = ref<ThermalState | null>(null)
 const error = ref<string | null>(null)
 const lastPing = ref<Date | null>(null)
 
@@ -32,6 +36,8 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let demoTimer: ReturnType<typeof setInterval> | null = null
 let heartbeatMonitorTimer: ReturnType<typeof setInterval> | null = null
 let smoothingTimer: ReturnType<typeof setInterval> | null = null
+let healthSmoothingTimer: ReturnType<typeof setInterval> | null = null
+let thermalSmoothingTimer: ReturnType<typeof setInterval> | null = null
 let intentionalClose = false
 let lastSessionKey: string | number | null = null
 let lastDriverNumber: number | null = null
@@ -64,6 +70,20 @@ const stopSmoothing = () => {
     }
 }
 
+const stopHealthSmoothing = () => {
+    if (healthSmoothingTimer) {
+        clearInterval(healthSmoothingTimer)
+        healthSmoothingTimer = null
+    }
+}
+
+const stopThermalSmoothing = () => {
+    if (thermalSmoothingTimer) {
+        clearInterval(thermalSmoothingTimer)
+        thermalSmoothingTimer = null
+    }
+}
+
 const lerp = (current: number, target: number, alpha: number): number => {
     return current + (target - current) * alpha
 }
@@ -93,6 +113,47 @@ const startSmoothing = () => {
             drs: incoming.drs,
         }
     }, SMOOTHING_INTERVAL_MS)
+}
+
+const hasNewWarnings = (
+    nextHealth: WSTelemetryMessage['health'] | null,
+    current: WSTelemetryMessage['health'] | null
+): boolean => {
+    if (!nextHealth) {
+        return false
+    }
+    if (!current) {
+        return true
+    }
+
+    const nextWarnings = nextHealth.warnings ?? []
+    const currentWarnings = current.warnings ?? []
+    if (nextWarnings.length > currentWarnings.length) {
+        return true
+    }
+
+    const currentSet = new Set(currentWarnings)
+    return nextWarnings.some((warning) => !currentSet.has(warning))
+}
+
+const startHealthSmoothing = () => {
+    stopHealthSmoothing()
+    healthSmoothingTimer = setInterval(() => {
+        if (!latestHealth.value) {
+            return
+        }
+        currentHealth.value = latestHealth.value
+    }, HEALTH_SMOOTHING_INTERVAL_MS)
+}
+
+const startThermalSmoothing = () => {
+    stopThermalSmoothing()
+    thermalSmoothingTimer = setInterval(() => {
+        if (!latestThermal.value) {
+            return
+        }
+        thermalData.value = latestThermal.value
+    }, THERMAL_SMOOTHING_INTERVAL_MS)
 }
 
 const randomInt = (min: number, max: number): number =>
@@ -199,7 +260,9 @@ export const enableDemoMode = () => {
         }
         latestTelemetry.value = sample
         smoothedTelemetry.value = sample
-        thermalData.value = createDemoThermalData(sample, demoTick)
+        const demoThermal = createDemoThermalData(sample, demoTick)
+        latestThermal.value = demoThermal
+        thermalData.value = demoThermal
         demoTick += 1
     }, 150)
 }
@@ -263,8 +326,17 @@ export const useTelemetrySocket = () => {
                     ...parsedMessage.latest,
                     ...(parsedMessage.timestamp ? { timestamp: parsedMessage.timestamp } : {}),
                 }
-                currentHealth.value = parsedMessage.health
-                thermalData.value = parsedMessage.thermal ?? null
+                latestHealth.value = parsedMessage.health
+                if (hasNewWarnings(latestHealth.value, currentHealth.value)) {
+                    currentHealth.value = latestHealth.value
+                }
+                latestThermal.value = parsedMessage.thermal ?? null
+                if (
+                    latestThermal.value
+                    && latestThermal.value.thermal_alert !== thermalData.value?.thermal_alert
+                ) {
+                    thermalData.value = latestThermal.value
+                }
                 break
             case 'ping':
                 lastPing.value = new Date()
@@ -286,6 +358,8 @@ export const useTelemetrySocket = () => {
 
         stopDemoMode()
         startSmoothing()
+        startHealthSmoothing()
+        startThermalSmoothing()
 
         lastSessionKey = sessionKey
         lastDriverNumber = driverNumber
@@ -333,6 +407,8 @@ export const useTelemetrySocket = () => {
         stopDemoMode()
         stopHeartbeatMonitor()
         stopSmoothing()
+        stopHealthSmoothing()
+        stopThermalSmoothing()
         reconnectAttempts.value = 0
 
         if (socket.value) {
@@ -344,7 +420,9 @@ export const useTelemetrySocket = () => {
         latestTelemetry.value = null
         smoothedTelemetry.value = null
         currentHealth.value = null
+        latestHealth.value = null
         thermalData.value = null
+        latestThermal.value = null
         error.value = null
         lastPing.value = null
     }
