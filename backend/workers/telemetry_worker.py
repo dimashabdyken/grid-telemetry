@@ -742,6 +742,28 @@ def _process_record_sync(
     health["snapshot"]["brake_agg"] = round(brake_aggression, 1)
     health["snapshot"]["trans_stress"] = round(trans_stress, 1)
 
+    # Simulate Analog Brake Pressure
+    # F1 public API only gives binary brake (0 or 100+). We interpolate pressure based on speed drop.
+    raw_brake = _to_float(record_dict.get("brake", 0))
+    if raw_brake > 0:
+        if len(recent_records) >= 2:
+            prev_speed = _to_float(recent_records[-2].get("speed", 0))
+            curr_speed = _to_float(record_dict.get("speed", 0))
+            speed_drop = prev_speed - curr_speed
+
+            if speed_drop > 0:
+                # In F1, max deceleration is ~5G (dropping ~15-18 km/h per 100ms)
+                # Map a speed drop of 0-15 km/h to 10%-100% brake pressure
+                simulated_brake = min(100.0, max(5.0, (speed_drop / 15.0) * 100.0))
+                record_dict["brake"] = round(simulated_brake, 1)
+            else:
+                # Trail braking (speed not dropping significantly yet)
+                record_dict["brake"] = 15.0
+        else:
+            record_dict["brake"] = 50.0
+    else:
+        record_dict["brake"] = 0.0
+
     # Normalize values for JSON-safe output.
     for key, value in record_dict.items():
         if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
